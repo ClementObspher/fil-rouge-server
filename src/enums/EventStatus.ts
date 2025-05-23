@@ -1,0 +1,5 @@
+export enum EventStatus {
+	PENDING = "PENDING",
+	CONFIRMED = "CONFIRMED",
+	CANCELLED = "CANCELLED",
+}

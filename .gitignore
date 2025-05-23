@@ -1,0 +1,13 @@
+# deps
+node_modules/
+.env
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# prisma
+prisma/migrations
+prisma/generated
+prisma/schema.prisma
