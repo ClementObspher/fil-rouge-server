@@ -60,7 +60,7 @@ async function main() {
 			isPublic: true,
 			isFeatured: true,
 			coverImage: "https://example.com/concert-cover.jpg",
-			userId: admin.id,
+			ownerId: admin.id,
 		},
 	})
 
@@ -77,7 +77,7 @@ async function main() {
 			type: EventType.VISUAL_ART,
 			isPublic: true,
 			coverImage: "https://example.com/exposition-cover.jpg",
-			userId: user1.id,
+			ownerId: user1.id,
 		},
 	})
 

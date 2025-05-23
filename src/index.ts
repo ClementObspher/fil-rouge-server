@@ -35,7 +35,7 @@ app.get("/", (c) => {
 app.route("/api/auth", auth)
 
 // Routes protégées
-app.use("*", authMiddleware)
+app.use("/api/*", authMiddleware)
 app.route("/api/users", user)
 app.route("/api/events", event)
 app.route("/api/event-images", eventImage)
