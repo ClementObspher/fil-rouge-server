@@ -9,6 +9,7 @@ async function main() {
 	await prisma.message.deleteMany()
 	await prisma.eventImage.deleteMany()
 	await prisma.event.deleteMany()
+	await prisma.address.deleteMany()
 	await prisma.user.deleteMany()
 
 	// Création des utilisateurs
@@ -19,7 +20,11 @@ async function main() {
 		data: {
 			email: "admin@example.com",
 			password: adminPassword,
-			name: "Admin User",
+			firstname: "Admin",
+			lastname: "User",
+			bio: "Administrateur de la plateforme",
+			birthdate: new Date("1990-01-01"),
+			nationality: "FR",
 			role: Role.ADMIN,
 			avatar: "https://example.com/admin-avatar.jpg",
 		},
@@ -29,7 +34,11 @@ async function main() {
 		data: {
 			email: "user1@example.com",
 			password: userPassword,
-			name: "John Doe",
+			firstname: "John",
+			lastname: "Doe",
+			bio: "Passionné de musique et d'événements culturels",
+			birthdate: new Date("1995-05-15"),
+			nationality: "FR",
 			role: Role.USER,
 			avatar: "https://example.com/user1-avatar.jpg",
 		},
@@ -39,9 +48,38 @@ async function main() {
 		data: {
 			email: "user2@example.com",
 			password: userPassword,
-			name: "Jane Smith",
+			firstname: "Jane",
+			lastname: "Smith",
+			bio: "Artiste et organisatrice d'expositions",
+			birthdate: new Date("1988-12-03"),
+			nationality: "FR",
 			role: Role.USER,
 			avatar: "https://example.com/user2-avatar.jpg",
+		},
+	})
+
+	// Création des adresses
+	const address1 = await prisma.address.create({
+		data: {
+			number: "123",
+			street: "Avenue des Champs-Élysées",
+			city: "Paris",
+			postal_code: "75008",
+			country: "France",
+			longitude: 2.3522,
+			latitude: 48.8566,
+		},
+	})
+
+	const address2 = await prisma.address.create({
+		data: {
+			number: "45",
+			street: "Rue de Rivoli",
+			city: "Paris",
+			postal_code: "75004",
+			country: "France",
+			longitude: 2.3522,
+			latitude: 48.8566,
 		},
 	})
 
@@ -53,14 +91,13 @@ async function main() {
 			description: "Un grand concert rock avec les meilleurs artistes",
 			startDate: new Date("2024-06-15T19:00:00Z"),
 			endDate: new Date("2024-06-15T23:00:00Z"),
-			longitude: 2.3522,
-			latitude: 48.8566,
 			status: EventStatus.CONFIRMED,
 			type: EventType.MUSIC,
 			isPublic: true,
 			isFeatured: true,
 			coverImage: "https://example.com/concert-cover.jpg",
 			ownerId: admin.id,
+			addressId: address1.id,
 		},
 	})
 
@@ -71,13 +108,12 @@ async function main() {
 			description: "Une exposition d'art moderne exceptionnelle",
 			startDate: new Date("2024-07-01T10:00:00Z"),
 			endDate: new Date("2024-07-15T18:00:00Z"),
-			longitude: 2.3522,
-			latitude: 48.8566,
 			status: EventStatus.PENDING,
 			type: EventType.VISUAL_ART,
 			isPublic: true,
 			coverImage: "https://example.com/exposition-cover.jpg",
 			ownerId: user1.id,
+			addressId: address2.id,
 		},
 	})
 
@@ -122,16 +158,6 @@ async function main() {
 				messageId: message2.id,
 			},
 		],
-	})
-
-	// Ajout d'amis
-	await prisma.user.update({
-		where: { id: user1.id },
-		data: {
-			friends: {
-				connect: [{ id: user2.id }],
-			},
-		},
 	})
 
 	console.log("Données de test créées avec succès !")

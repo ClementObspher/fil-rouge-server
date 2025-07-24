@@ -43,7 +43,7 @@ export class UserService {
 		return prisma.user.update({
 			where: { id: userId },
 			data: {
-				friends: {
+				User_A: {
 					connect: { id: friendId },
 				},
 			},
@@ -53,16 +53,16 @@ export class UserService {
 	async getFriends(userId: string): Promise<User[]> {
 		const user = await prisma.user.findUnique({
 			where: { id: userId },
-			include: { friends: true },
+			include: { User_A: true },
 		})
-		return user?.friends || []
+		return user?.User_A || []
 	}
 
 	async removeFriend(userId: string, friendId: string): Promise<User> {
 		return prisma.user.update({
 			where: { id: userId },
 			data: {
-				friends: { disconnect: { id: friendId } },
+				User_A: { disconnect: { id: friendId } },
 			},
 		})
 	}

@@ -1,4 +1,4 @@
-import { Event } from "@prisma/client"
+import { Event, Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 export class EventService {
@@ -30,7 +30,7 @@ export class EventService {
 		})
 	}
 
-	async update(id: string, data: Partial<Event>): Promise<Event> {
+	async update(id: string, data: Partial<Prisma.EventUpdateInput>): Promise<Event> {
 		return prisma.event.update({
 			where: { id },
 			data,

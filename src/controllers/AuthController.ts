@@ -23,13 +23,17 @@ export class AuthController {
 
 	async register(c: Context) {
 		try {
-			const { email, password, name } = await c.req.json<{
+			const { email, password, firstname, lastname, bio, birthdate, nationality } = await c.req.json<{
 				email: string
 				password: string
-				name: string
+				firstname: string
+				lastname: string
+				bio: string
+				birthdate: Date
+				nationality: string
 			}>()
 
-			const result = await authService.register(email, password, name)
+			const result = await authService.register(email, password, firstname, lastname, bio, birthdate, nationality)
 			return c.json(result)
 		} catch (error) {
 			if (error instanceof Error) {

@@ -502,6 +502,7 @@ openapi.get("/openapi.json", (c) => {
 						coverImage: { type: "string", nullable: true },
 						title: { type: "string" },
 						description: { type: "string", nullable: true },
+						address: { type: "string", nullable: true },
 						startDate: { type: "string", format: "date-time" },
 						endDate: { type: "string", format: "date-time" },
 						longitude: { type: "number", format: "float" },
