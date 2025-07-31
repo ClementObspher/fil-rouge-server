@@ -3,24 +3,101 @@ import prisma from "../lib/prisma"
 
 export class EventService {
 	async findAll(): Promise<Event[]> {
-		return prisma.event.findMany()
+		return prisma.event.findMany({
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
+		})
 	}
 
 	async findById(id: string): Promise<Event | null> {
 		return prisma.event.findUnique({
 			where: { id },
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 
 	async findByUserId(userId: string): Promise<Event[]> {
 		return prisma.event.findMany({
 			where: { ownerId: userId },
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 
 	async findByParticipantId(userId: string): Promise<Event[]> {
 		return prisma.event.findMany({
 			where: { participants: { some: { id: userId } } },
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 

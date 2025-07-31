@@ -35,6 +35,7 @@ export class MessageController {
 			const messages = await messageService.findByEventId(eventId)
 			return c.json(messages)
 		} catch (error) {
+			console.log(error)
 			return c.json({ error: "Erreur lors de la récupération des messages" }, 500)
 		}
 	}
@@ -43,6 +44,7 @@ export class MessageController {
 		try {
 			const data = await c.req.json<Omit<Message, "id" | "createdAt" | "updatedAt">>()
 			const message = await messageService.create(data)
+			console.log(message)
 			return c.json(message, 201)
 		} catch (error) {
 			return c.json({ error: "Erreur lors de la création du message" }, 500)

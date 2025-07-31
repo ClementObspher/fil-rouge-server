@@ -2,19 +2,53 @@ import { Message } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 export class MessageService {
-	async findAll(): Promise<Message[]> {
-		return prisma.message.findMany()
-	}
-
-	async findById(id: string): Promise<Message | null> {
-		return prisma.message.findUnique({
-			where: { id },
+	async findAll(): Promise<any[]> {
+		return prisma.message.findMany({
+			include: {
+				user: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+						role: true,
+					},
+				},
+			},
 		})
 	}
 
-	async findByEventId(eventId: string): Promise<Message[]> {
+	async findById(id: string): Promise<any | null> {
+		return prisma.message.findUnique({
+			where: { id },
+			include: {
+				user: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+						role: true,
+					},
+				},
+			},
+		})
+	}
+
+	async findByEventId(eventId: string): Promise<any[]> {
 		return prisma.message.findMany({
 			where: { eventId },
+			include: {
+				user: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+						role: true,
+					},
+				},
+			},
 		})
 	}
 

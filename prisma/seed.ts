@@ -1,4 +1,4 @@
-import { PrismaClient, Role, EventStatus, EventType } from "@prisma/client"
+import { PrismaClient, Role, EventStatus, EventType, FriendRequestStatus, MessageReactionType } from "@prisma/client"
 import * as bcrypt from "bcrypt"
 
 const prisma = new PrismaClient()
@@ -13,8 +13,8 @@ async function main() {
 	await prisma.user.deleteMany()
 
 	// Création des utilisateurs
-	const adminPassword = await bcrypt.hash("admin123", 10)
-	const userPassword = await bcrypt.hash("user123", 10)
+	const adminPassword = await bcrypt.hash("password", 10)
+	const userPassword = await bcrypt.hash("password", 10)
 
 	const admin = await prisma.user.create({
 		data: {
@@ -26,7 +26,7 @@ async function main() {
 			birthdate: new Date("1990-01-01"),
 			nationality: "FR",
 			role: Role.ADMIN,
-			avatar: "https://example.com/admin-avatar.jpg",
+			avatar: "https://github.com/shadcn.png",
 		},
 	})
 
@@ -40,7 +40,7 @@ async function main() {
 			birthdate: new Date("1995-05-15"),
 			nationality: "FR",
 			role: Role.USER,
-			avatar: "https://example.com/user1-avatar.jpg",
+			avatar: "https://github.com/shadcn.png",
 		},
 	})
 
@@ -54,7 +54,7 @@ async function main() {
 			birthdate: new Date("1988-12-03"),
 			nationality: "FR",
 			role: Role.USER,
-			avatar: "https://example.com/user2-avatar.jpg",
+			avatar: "https://github.com/shadcn.png",
 		},
 	})
 
@@ -95,7 +95,7 @@ async function main() {
 			type: EventType.MUSIC,
 			isPublic: true,
 			isFeatured: true,
-			coverImage: "https://example.com/concert-cover.jpg",
+			coverImage: "http://localhost:9000/images/ddc2afed-be90-4a4d-aa80-64506ed1e83d-9bc52893-f7be-410b-b306-0cec3ec688a6-cover.jpg",
 			ownerId: admin.id,
 			addressId: address1.id,
 		},
@@ -111,7 +111,7 @@ async function main() {
 			status: EventStatus.PENDING,
 			type: EventType.VISUAL_ART,
 			isPublic: true,
-			coverImage: "https://example.com/exposition-cover.jpg",
+			coverImage: "http://localhost:9000/images/ddc2afed-be90-4a4d-aa80-64506ed1e83d-9bc52893-f7be-410b-b306-0cec3ec688a6-cover.jpg",
 			ownerId: user1.id,
 			addressId: address2.id,
 		},
@@ -139,12 +139,16 @@ async function main() {
 	const message1 = await prisma.message.create({
 		data: {
 			eventId: event1.id,
+			userId: admin.id,
+			content: "Bonjour, je suis l'administrateur de l'événement",
 		},
 	})
 
 	const message2 = await prisma.message.create({
 		data: {
 			eventId: event2.id,
+			userId: user1.id,
+			content: "Bonjour, je suis l'utilisateur 1 de l'événement",
 		},
 	})
 
@@ -153,12 +157,52 @@ async function main() {
 		data: [
 			{
 				messageId: message1.id,
+				userId: admin.id,
+				type: MessageReactionType.LIKE,
 			},
 			{
 				messageId: message2.id,
+				userId: user1.id,
+				type: MessageReactionType.LOVE,
 			},
 		],
 	})
+
+	// Création des demandes d'amis pour les tests
+	// await prisma.friendRequest.createMany({
+	// 	data: [
+	// 		{
+	// 			senderId: user1.id,
+	// 			receiverId: user2.id,
+	// 			status: FriendRequestStatus.PENDING,
+	// 		},
+	// 		{
+	// 			senderId: user2.id,
+	// 			receiverId: admin.id,
+	// 			status: FriendRequestStatus.PENDING,
+	// 		},
+	// 		{
+	// 			senderId: admin.id,
+	// 			receiverId: user1.id,
+	// 			status: FriendRequestStatus.ACCEPTED,
+	// 		},
+	// 	],
+	// })
+
+	// // Ajouter une relation d'amitié correspondante à la demande acceptée
+	// await prisma.user.update({
+	// 	where: { id: admin.id },
+	// 	data: {
+	// 		User_A: { connect: { id: user1.id } },
+	// 	},
+	// })
+
+	// await prisma.user.update({
+	// 	where: { id: user1.id },
+	// 	data: {
+	// 		User_A: { connect: { id: admin.id } },
+	// 	},
+	// })
 
 	console.log("Données de test créées avec succès !")
 }

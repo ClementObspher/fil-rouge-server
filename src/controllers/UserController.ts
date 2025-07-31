@@ -85,11 +85,76 @@ export class UserController {
 	async removeFriend(c: Context) {
 		try {
 			const userId = c.req.param("id")
-			const { friendId } = await c.req.json<{ friendId: string }>()
+			const friendId = c.req.param("friendId")
 			const user = await userService.removeFriend(userId, friendId)
 			return c.json(user)
 		} catch (error) {
 			return c.json({ error: "Erreur lors de la suppression de l'ami" }, 500)
+		}
+	}
+
+	async sendFriendRequest(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const { friendId } = await c.req.json<{ friendId: string }>()
+			const user = await userService.sendFriendRequest(userId, friendId)
+			return c.json({ message: "Demande d'ami envoyée avec succès", user })
+		} catch (error: any) {
+			console.log(error)
+			return c.json({ error: error.message || "Erreur lors de l'envoi de la demande d'ami" }, 400)
+		}
+	}
+
+	async acceptFriendRequest(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const { requestId } = await c.req.json<{ requestId: string }>()
+			const user = await userService.acceptFriendRequest(requestId, userId)
+			return c.json({ message: "Demande d'ami acceptée", user })
+		} catch (error: any) {
+			return c.json({ error: error.message || "Erreur lors de l'acceptation de la demande d'ami" }, 400)
+		}
+	}
+
+	async declineFriendRequest(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const { requestId } = await c.req.json<{ requestId: string }>()
+			await userService.declineFriendRequest(requestId, userId)
+			return c.json({ message: "Demande d'ami refusée" })
+		} catch (error: any) {
+			return c.json({ error: error.message || "Erreur lors du refus de la demande d'ami" }, 400)
+		}
+	}
+
+	async cancelFriendRequest(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const { requestId } = await c.req.json<{ requestId: string }>()
+			await userService.cancelFriendRequest(userId, requestId)
+			return c.json({ message: "Demande d'ami annulée" })
+		} catch (error: any) {
+			return c.json({ error: error.message || "Erreur lors de l'annulation de la demande d'ami" }, 400)
+		}
+	}
+
+	async getPendingFriendRequests(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const requests = await userService.getPendingFriendRequests(userId)
+			return c.json(requests)
+		} catch (error) {
+			return c.json({ error: "Erreur lors de la récupération des demandes d'ami" }, 500)
+		}
+	}
+
+	async getSentFriendRequests(c: Context) {
+		try {
+			const userId = c.req.param("id")
+			const requests = await userService.getSentFriendRequests(userId)
+			return c.json(requests)
+		} catch (error) {
+			return c.json({ error: "Erreur lors de la récupération des demandes envoyées" }, 500)
 		}
 	}
 

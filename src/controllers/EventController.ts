@@ -1,10 +1,14 @@
 import { Context } from "hono"
 import { EventService } from "../services/EventService"
-import { Event } from "@prisma/client"
+import { UserService } from "../services/UserService"
+import { Address, Event } from "@prisma/client"
 import { uploadImage } from "../lib/minioController"
 import { Prisma } from "@prisma/client"
+import { AddressService } from "../services/AddressService"
 
 const eventService = new EventService()
+const userService = new UserService()
+const addressService = new AddressService()
 
 export class EventController {
 	async getAll(c: Context) {
@@ -54,8 +58,11 @@ export class EventController {
 
 	async create(c: Context) {
 		try {
-			const data = await c.req.json<Omit<Event, "id" | "createdAt" | "updatedAt">>()
-			const event = await eventService.create(data)
+			const data = await c.req.json<Omit<Event, "id" | "createdAt" | "updatedAt"> & { address: Omit<Address, "id" | "createdAt" | "updatedAt"> }>()
+			const address = await addressService.create(data.address)
+
+			const { address: _, ...eventData } = data
+			const event = await eventService.create({ ...eventData, addressId: address.id })
 
 			if (data.coverImage) {
 				const base64Data = data.coverImage.split(",")[1]
@@ -75,6 +82,25 @@ export class EventController {
 		try {
 			const id = c.req.param("id")
 			const userId = c.req.param("userId")
+
+			// Vérifier que l'événement existe
+			const existingEvent = (await eventService.findById(id)) as any
+			if (!existingEvent) {
+				return c.json({ error: "Événement non trouvé" }, 404)
+			}
+
+			// Vérifier que l'utilisateur existe
+			const existingUser = await userService.findById(userId)
+			if (!existingUser) {
+				return c.json({ error: "Utilisateur non trouvé" }, 404)
+			}
+
+			// Vérifier si l'utilisateur participe déjà
+			const isAlreadyParticipating = existingEvent.participants?.some((participant: any) => participant.id === userId)
+			if (isAlreadyParticipating) {
+				return c.json({ error: "Vous participez déjà à cet événement" }, 400)
+			}
+
 			const event = await eventService.update(id, { participants: { connect: { id: userId } } })
 			return c.json(event)
 		} catch (error) {
@@ -82,11 +108,53 @@ export class EventController {
 		}
 	}
 
+	async unParticipate(c: Context) {
+		try {
+			const id = c.req.param("id")
+			const userId = c.req.param("userId")
+
+			// Vérifier que l'événement existe
+			const existingEvent = (await eventService.findById(id)) as any
+			if (!existingEvent) {
+				return c.json({ error: "Événement non trouvé" }, 404)
+			}
+
+			// Vérifier que l'utilisateur existe
+			const existingUser = await userService.findById(userId)
+			if (!existingUser) {
+				return c.json({ error: "Utilisateur non trouvé" }, 404)
+			}
+
+			// Vérifier si l'utilisateur participe actuellement
+			const isParticipating = existingEvent.participants?.some((participant: any) => participant.id === userId)
+			if (!isParticipating) {
+				return c.json({ error: "Vous ne participez pas à cet événement" }, 400)
+			}
+
+			const event = await eventService.update(id, { participants: { disconnect: { id: userId } } })
+			return c.json(event)
+		} catch (error) {
+			console.log("ERREUR dans unParticipate:", error)
+			return c.json({ error: "Erreur lors de la désinscription de l'événement" }, 500)
+		}
+	}
+
 	async update(c: Context) {
 		try {
 			const id = c.req.param("id")
-			const data = await c.req.json<Partial<Prisma.EventUpdateInput>>()
-			const event = await eventService.update(id, data)
+			const data = await c.req.json<Partial<Prisma.EventUpdateInput> & { address: Omit<Address, "id" | "createdAt" | "updatedAt"> }>()
+			const address = await addressService.create(data.address)
+			const { address: _, ...eventData } = data
+			const updateData = { ...eventData, addressId: address.id } as Partial<Prisma.EventUpdateInput>
+			const event = await eventService.update(id, updateData)
+
+			if (data.coverImage && typeof data.coverImage === "string") {
+				const base64Data = data.coverImage.split(",")[1]
+				const buffer = Buffer.from(base64Data, "base64")
+				const coverImage = await uploadImage(buffer, `${event.id}-cover.jpg`)
+				await eventService.update(event.id, { coverImage: coverImage })
+			}
+
 			return c.json(event)
 		} catch (error) {
 			return c.json({ error: "Erreur lors de la mise à jour de l'événement" }, 500)
