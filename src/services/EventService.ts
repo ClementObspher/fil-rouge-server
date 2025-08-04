@@ -1,5 +1,6 @@
 import { Event, Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
+import { EventType } from "../enums/EventType"
 
 export class EventService {
 	async findAll(): Promise<Event[]> {
@@ -71,6 +72,15 @@ export class EventService {
 						avatar: true,
 					},
 				},
+				address: true,
+			},
+		})
+	}
+
+	async findByTypes(types: EventType[]): Promise<Event[]> {
+		return prisma.event.findMany({
+			where: { type: { in: types } },
+			include: {
 				address: true,
 			},
 		})

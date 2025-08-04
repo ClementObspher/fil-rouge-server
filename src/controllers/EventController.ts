@@ -5,6 +5,7 @@ import { Address, Event } from "@prisma/client"
 import { uploadImage } from "../lib/minioController"
 import { Prisma } from "@prisma/client"
 import { AddressService } from "../services/AddressService"
+import { EventType } from "../enums/EventType"
 
 const eventService = new EventService()
 const userService = new UserService()
@@ -38,8 +39,25 @@ export class EventController {
 
 	async getByUserId(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const events = await eventService.findByUserId(userId)
+			return c.json(events)
+		} catch (error) {
+			return c.json({ error: "Erreur lors de la récupération des événements" }, 500)
+		}
+	}
+
+	async getByTypes(c: Context) {
+		try {
+			const typesParam = c.req.query("types")
+
+			if (!typesParam) {
+				return c.json({ error: "Le paramètre 'types' est requis" }, 400)
+			}
+
+			// Parser les types depuis le query parameter (ex: ?types=SPORT,MUSIC)
+			const types = typesParam.split(",") as EventType[]
+			const events = await eventService.findByTypes(types)
 			return c.json(events)
 		} catch (error) {
 			return c.json({ error: "Erreur lors de la récupération des événements" }, 500)
@@ -48,7 +66,7 @@ export class EventController {
 
 	async getByParticipantId(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const events = await eventService.findByParticipantId(userId)
 			return c.json(events)
 		} catch (error) {
@@ -81,7 +99,7 @@ export class EventController {
 	async participate(c: Context) {
 		try {
 			const id = c.req.param("id")
-			const userId = c.req.param("userId")
+			const userId = c.get("user").userId
 
 			// Vérifier que l'événement existe
 			const existingEvent = (await eventService.findById(id)) as any
@@ -111,7 +129,7 @@ export class EventController {
 	async unParticipate(c: Context) {
 		try {
 			const id = c.req.param("id")
-			const userId = c.req.param("userId")
+			const userId = c.get("user").userId
 
 			// Vérifier que l'événement existe
 			const existingEvent = (await eventService.findById(id)) as any

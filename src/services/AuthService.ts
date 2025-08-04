@@ -1,9 +1,9 @@
 import { compare, hash } from "bcrypt"
 import { sign } from "jsonwebtoken"
 import prisma from "../lib/prisma"
-import { Role } from "@prisma/client"
+import { Role, User } from "@prisma/client"
 
-const JWT_SECRET = process.env.JWT_SECRET || "votre_secret_jwt"
+const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt"
 
 export class AuthService {
 	async login(email: string, password: string) {
@@ -30,57 +30,31 @@ export class AuthService {
 			{ expiresIn: "24h" }
 		)
 
-		return {
-			token,
-			user: {
-				id: user.id,
-				email: user.email,
-				role: user.role,
-			},
-		}
+		return token
 	}
 
-	async register(email: string, password: string, firstname: string, lastname: string, bio: string, birthdate: Date, nationality: string) {
+	async register(data: Omit<User, "id" | "createdAt" | "updatedAt">) {
 		const existingUser = await prisma.user.findUnique({
-			where: { email },
+			where: { email: data.email },
 		})
 
 		if (existingUser) {
 			throw new Error("Utilisateur déjà existant")
 		}
 
-		const hashedPassword = await hash(password, 10)
+		const hashedPassword = await hash(data.password, 10)
 
-		const user = await prisma.user.create({
+		return prisma.user.create({
 			data: {
-				email,
+				email: data.email,
 				password: hashedPassword,
-				firstname,
-				lastname,
-				bio,
-				birthdate,
-				nationality,
+				firstname: data.firstname,
+				lastname: data.lastname,
+				bio: data.bio,
+				birthdate: data.birthdate,
+				nationality: data.nationality,
 				role: Role.USER,
 			},
 		})
-
-		const token = sign(
-			{
-				userId: user.id,
-				email: user.email,
-				role: user.role,
-			},
-			JWT_SECRET,
-			{ expiresIn: "24h" }
-		)
-
-		return {
-			token,
-			user: {
-				id: user.id,
-				email: user.email,
-				role: user.role,
-			},
-		}
 	}
 }

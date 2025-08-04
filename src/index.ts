@@ -10,6 +10,8 @@ import event from "./routes/event"
 import eventImage from "./routes/event_image"
 import message from "./routes/message"
 import messageReaction from "./routes/message_reaction"
+import conversation from "./routes/conversation"
+import privateMessageReaction from "./routes/private_message_reaction"
 import { authMiddleware } from "./middleware/auth"
 
 const app = new Hono()
@@ -41,6 +43,8 @@ app.route("/api/events", event)
 app.route("/api/event-images", eventImage)
 app.route("/api/messages", message)
 app.route("/api/message-reactions", messageReaction)
+app.route("/api/conversations", conversation)
+app.route("/api/private-message-reactions", privateMessageReaction)
 
 export default {
 	port: process.env.PORT || 3001,

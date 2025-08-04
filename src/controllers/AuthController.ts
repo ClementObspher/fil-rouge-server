@@ -1,7 +1,11 @@
 import { Context } from "hono"
 import { AuthService } from "../services/AuthService"
+import { User } from "@prisma/client"
+import { uploadImage } from "../lib/minioController"
+import { UserService } from "../services/UserService"
 
 const authService = new AuthService()
+const userService = new UserService()
 
 export class AuthController {
 	async login(c: Context) {
@@ -23,18 +27,24 @@ export class AuthController {
 
 	async register(c: Context) {
 		try {
-			const { email, password, firstname, lastname, bio, birthdate, nationality } = await c.req.json<{
-				email: string
-				password: string
-				firstname: string
-				lastname: string
-				bio: string
-				birthdate: Date
-				nationality: string
-			}>()
+			const data = await c.req.json<Omit<User, "id" | "createdAt" | "updatedAt"> & { confirmPassword: string }>()
 
-			const result = await authService.register(email, password, firstname, lastname, bio, birthdate, nationality)
-			return c.json(result)
+			if (data.password !== data.confirmPassword) {
+				return c.json({ error: "Les mots de passe ne correspondent pas" }, 400)
+			}
+
+			const { confirmPassword, ...userData } = data
+
+			const user = await authService.register(userData)
+
+			if (data.avatar) {
+				const base64Data = data.avatar.split(",")[1]
+				const buffer = Buffer.from(base64Data, "base64")
+				const avatar = await uploadImage(buffer, `${data.firstname}-${data.lastname}-avatar.jpg`)
+				await userService.updateAvatar(user.id, avatar)
+			}
+
+			return c.json(user)
 		} catch (error) {
 			if (error instanceof Error) {
 				return c.json({ error: error.message }, 400)

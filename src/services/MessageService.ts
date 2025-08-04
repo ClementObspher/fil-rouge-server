@@ -14,6 +14,7 @@ export class MessageService {
 						role: true,
 					},
 				},
+				reactions: true,
 			},
 		})
 	}
@@ -31,6 +32,11 @@ export class MessageService {
 						role: true,
 					},
 				},
+				reactions: {
+					include: {
+						sender: true,
+					},
+				},
 			},
 		})
 	}
@@ -46,6 +52,11 @@ export class MessageService {
 						lastname: true,
 						avatar: true,
 						role: true,
+					},
+				},
+				reactions: {
+					include: {
+						sender: true,
 					},
 				},
 			},

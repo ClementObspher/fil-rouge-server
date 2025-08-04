@@ -15,6 +15,17 @@ export class MessageReactionService {
 	async findByMessageId(messageId: string): Promise<MessageReaction[]> {
 		return prisma.messageReaction.findMany({
 			where: { messageId },
+			include: {
+				sender: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+						role: true,
+					},
+				},
+			},
 		})
 	}
 

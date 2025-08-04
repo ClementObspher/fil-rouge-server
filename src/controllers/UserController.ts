@@ -42,7 +42,7 @@ export class UserController {
 
 	async update(c: Context) {
 		try {
-			const id = c.req.param("id")
+			const id = c.get("user").userId
 			const data = await c.req.json<Partial<User>>()
 			const user = await userService.update(id, data)
 			return c.json(user)
@@ -53,7 +53,7 @@ export class UserController {
 
 	async delete(c: Context) {
 		try {
-			const id = c.req.param("id")
+			const id = c.get("user").userId
 			await userService.delete(id)
 			return c.json({ message: "Utilisateur supprimé avec succès" })
 		} catch (error) {
@@ -63,7 +63,7 @@ export class UserController {
 
 	async addFriend(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const { friendId } = await c.req.json<{ friendId: string }>()
 			const user = await userService.addFriend(userId, friendId)
 			return c.json(user)
@@ -74,7 +74,7 @@ export class UserController {
 
 	async getFriends(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const friends = await userService.getFriends(userId)
 			return c.json(friends)
 		} catch (error) {
@@ -84,7 +84,7 @@ export class UserController {
 
 	async removeFriend(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const friendId = c.req.param("friendId")
 			const user = await userService.removeFriend(userId, friendId)
 			return c.json(user)
@@ -95,7 +95,7 @@ export class UserController {
 
 	async sendFriendRequest(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const { friendId } = await c.req.json<{ friendId: string }>()
 			const user = await userService.sendFriendRequest(userId, friendId)
 			return c.json({ message: "Demande d'ami envoyée avec succès", user })
@@ -107,7 +107,7 @@ export class UserController {
 
 	async acceptFriendRequest(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const { requestId } = await c.req.json<{ requestId: string }>()
 			const user = await userService.acceptFriendRequest(requestId, userId)
 			return c.json({ message: "Demande d'ami acceptée", user })
@@ -118,7 +118,7 @@ export class UserController {
 
 	async declineFriendRequest(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const { requestId } = await c.req.json<{ requestId: string }>()
 			await userService.declineFriendRequest(requestId, userId)
 			return c.json({ message: "Demande d'ami refusée" })
@@ -129,7 +129,7 @@ export class UserController {
 
 	async cancelFriendRequest(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const { requestId } = await c.req.json<{ requestId: string }>()
 			await userService.cancelFriendRequest(userId, requestId)
 			return c.json({ message: "Demande d'ami annulée" })
@@ -140,7 +140,7 @@ export class UserController {
 
 	async getPendingFriendRequests(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const requests = await userService.getPendingFriendRequests(userId)
 			return c.json(requests)
 		} catch (error) {
@@ -150,7 +150,7 @@ export class UserController {
 
 	async getSentFriendRequests(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const requests = await userService.getSentFriendRequests(userId)
 			return c.json(requests)
 		} catch (error) {
@@ -160,7 +160,7 @@ export class UserController {
 
 	async updateAvatar(c: Context) {
 		try {
-			const userId = c.req.param("id")
+			const userId = c.get("user").userId
 			const file = (c.req as any).file
 			if (!file) {
 				return c.json({ error: "Aucun fichier n'a été uploadé" }, 400)
