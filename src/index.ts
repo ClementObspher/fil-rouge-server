@@ -12,14 +12,35 @@ import message from "./routes/message"
 import messageReaction from "./routes/message_reaction"
 import conversation from "./routes/conversation"
 import privateMessageReaction from "./routes/private_message_reaction"
+import monitoring from "./routes/monitoring"
 import { authMiddleware } from "./middleware/auth"
+import { monitoringMiddleware, securityMonitoringMiddleware, businessMetricsMiddleware, rateLimitingMiddleware } from "./middleware/monitoring"
+import { useApitally } from "apitally/hono"
 
 const app = new Hono()
+
+useApitally(app, {
+	clientId: "89c964a5-16d6-444e-a86b-0d2610659ad4",
+	env: "dev",
+	requestLogging: {
+		enabled: true,
+		logRequestHeaders: true,
+		logRequestBody: true,
+		logResponseBody: true,
+	},
+})
 
 // Middleware globaux
 app.use("*", cors())
 app.use("*", logger())
 app.use("*", prettyJSON())
+
+// Middleware de monitoring
+app.use("*", monitoringMiddleware)
+app.use("*", businessMetricsMiddleware)
+
+// Rate limiting global
+app.use("*", rateLimitingMiddleware(100, 60000)) // 100 requêtes par minute
 
 // Documentation Swagger
 app.get("/docs", swaggerUI({ url: "/docs/openapi.json" }))
@@ -33,7 +54,11 @@ app.get("/", (c) => {
 	})
 })
 
-// Routes d'authentification (non protégées)
+// Routes de monitoring (non protégées)
+app.route("/monitoring", monitoring)
+
+// Routes d'authentification (non protégées) avec monitoring de sécurité
+app.use("/api/auth/*", securityMonitoringMiddleware)
 app.route("/api/auth", auth)
 
 // Routes protégées
