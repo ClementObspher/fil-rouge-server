@@ -1,0 +1,141 @@
+name: Audit de Sécurité des Dépendances
+
+on:
+    schedule:
+        # Exécution hebdomadaire le lundi à 9h
+        - cron: "0 9 * * 1"
+    workflow_dispatch:
+        # Permet l'exécution manuelle
+    push:
+        # Déclenché sur modification de package.json
+        paths:
+            - "package.json"
+            - "bun.lock"
+
+jobs:
+    security-audit:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Run security audit
+              run: |
+                  chmod +x scripts/security-audit.sh
+                  ./scripts/security-audit.sh
+
+            - name: Upload audit report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: security-audit-report
+                  path: audit-report.md
+                  retention-days: 30
+
+            - name: Check for critical vulnerabilities
+              run: |
+                  if grep -q "Vulnérabilités critiques détectées" audit-report.md; then
+                    echo "❌ Vulnérabilités critiques détectées!"
+                    exit 1
+                  else
+                    echo "✅ Aucune vulnérabilité critique"
+                  fi
+
+            - name: Create issue for outdated dependencies
+              if: failure()
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const report = fs.readFileSync('audit-report.md', 'utf8');
+
+                      const issueTitle = '🔍 Audit de Sécurité - Action Requise';
+                      const issueBody = `
+                      ## Audit de Sécurité Automatique
+
+                      Un audit de sécurité a détecté des problèmes nécessitant votre attention.
+
+                      ### Rapport Complet
+                      \`\`\`
+                      ${report}
+                      \`\`\`
+
+                      ### Actions Requises
+                      1. Réviser les vulnérabilités détectées
+                      2. Mettre à jour les dépendances obsolètes
+                      3. Tester l'application après les mises à jour
+
+                      ---
+                      *Généré automatiquement par le workflow d'audit de sécurité*
+                      `;
+
+                      await github.rest.issues.create({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        title: issueTitle,
+                        body: issueBody,
+                        labels: ['security', 'dependencies', 'automated']
+                      });
+
+    dependency-update:
+        runs-on: ubuntu-latest
+        needs: security-audit
+        if: needs.security-audit.result == 'success'
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Check for outdated dependencies
+              run: |
+                  bun outdated > outdated.txt || true
+                  if [ -s outdated.txt ]; then
+                    echo "Dépendances obsolètes détectées:"
+                    cat outdated.txt
+                    echo "::set-output name=has-updates::true"
+                  else
+                    echo "Toutes les dépendances sont à jour"
+                    echo "::set-output name=has-updates::false"
+                  fi
+              id: check-updates
+
+            - name: Create Pull Request for updates
+              if: steps.check-updates.outputs.has-updates == 'true'
+              uses: peter-evans/create-pull-request@v5
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  commit-message: "chore: Mise à jour automatique des dépendances"
+                  title: "🔄 Mise à jour automatique des dépendances"
+                  body: |
+                      ## Mise à Jour Automatique des Dépendances
+
+                      Ce PR contient les mises à jour automatiques des dépendances détectées par l'audit de sécurité.
+
+                      ### Dépendances Mises à Jour
+                      ```
+                      $(cat outdated.txt)
+                      ```
+
+                      ### Actions Requises
+                      - [ ] Réviser les changements
+                      - [ ] Tester l'application
+                      - [ ] Vérifier la compatibilité
+
+                      ---
+                      *Généré automatiquement par le workflow de mise à jour*
+                  branch: dependency-updates
+                  delete-branch: true

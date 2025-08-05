@@ -2,19 +2,24 @@
   "name": "fil-rouge-server",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "prisma:seed": "bun prisma/seed.ts"
+    "prisma:seed": "bun prisma/seed.ts",
+    "audit": "./scripts/security-audit.sh",
+    "update:safe": "./scripts/safe-update.sh",
+    "deps:check": "bun outdated",
+    "deps:update": "bun update",
+    "deps:update:patch": "bun update --patch"
   },
   "dependencies": {
-    "@hono/swagger-ui": "^0.5.1",
-    "@hono/zod-openapi": "^0.19.6",
+    "@hono/swagger-ui": "^0.5.2",
+    "@hono/zod-openapi": "^0.19.10",
     "@hono/zod-validator": "^0.4.3",
-    "@prisma/client": "^6.6.0",
+    "@prisma/client": "^6.13.0",
     "@types/bcrypt": "^5.0.2",
-    "@types/jsonwebtoken": "^9.0.9",
-    "@types/multer": "^1.4.12",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^1.4.13",
     "@types/uuid": "^10.0.0",
     "bcrypt": "^5.1.1",
-    "hono": "^4.7.10",
+    "hono": "^4.8.12",
     "jsonwebtoken": "^9.0.2",
     "minio": "^8.0.5",
     "multer": "^1.4.5-lts.2",
@@ -22,8 +27,8 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^22.15.21",
-    "prisma": "^6.6.0",
+    "@types/node": "^22.17.0",
+    "prisma": "^6.13.0",
     "ts-node": "^10.9.2"
   }
 }
