@@ -13,11 +13,20 @@ import messageReaction from "./routes/message_reaction"
 import conversation from "./routes/conversation"
 import privateMessageReaction from "./routes/private_message_reaction"
 import monitoring from "./routes/monitoring"
+import anomaly from "./routes/anomaly"
+import adminAuth from "./routes/adminAuth"
+import { webAuthMiddleware } from "./middleware/adminAuth"
 import { authMiddleware } from "./middleware/auth"
 import { monitoringMiddleware, securityMonitoringMiddleware, businessMetricsMiddleware, rateLimitingMiddleware } from "./middleware/monitoring"
 import { useApitally } from "apitally/hono"
 
+// Importer AlertService pour démarrer le système automatique de détection d'anomalies
+import AlertService from "./services/AlertService"
+
 const app = new Hono()
+
+// Démarrage du système de monitoring automatique
+console.log("🤖 Système de détection automatique d'anomalies démarré (vérification toutes les 30s)")
 
 useApitally(app, {
 	clientId: "89c964a5-16d6-444e-a86b-0d2610659ad4",
@@ -32,7 +41,15 @@ useApitally(app, {
 
 // Middleware globaux
 app.use("*", cors())
-app.use("*", logger())
+app.use(
+	"*",
+	logger((str, req) => {
+		if (str.includes("/monitoring") || str.includes("/anomalies")) {
+			return
+		}
+		return str
+	})
+)
 app.use("*", prettyJSON())
 
 // Middleware de monitoring
@@ -54,8 +71,26 @@ app.get("/", (c) => {
 	})
 })
 
-// Routes de monitoring (non protégées)
+// Page de connexion admin (non protégée)
+app.get("/admin-login", async (c) => {
+	const html = await Bun.file("src/public/admin-login.html").text()
+	return c.html(html)
+})
+
+// Routes d'authentification admin (non protégées)
+app.route("/admin", adminAuth)
+
+// Dashboard de monitoring (authentification côté client)
+app.get("/monitoring-dashboard", async (c) => {
+	const html = await Bun.file("src/public/monitoring-dashboard.html").text()
+	return c.html(html)
+})
+
+// Routes de monitoring (non protégées - APIs seulement)
 app.route("/monitoring", monitoring)
+
+// Routes d'anomalies (protégées par auth admin)
+app.route("/api/anomalies", anomaly)
 
 // Routes d'authentification (non protégées) avec monitoring de sécurité
 app.use("/api/auth/*", securityMonitoringMiddleware)

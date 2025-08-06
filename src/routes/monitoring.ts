@@ -412,6 +412,53 @@ monitoring.get("/logs/all", async (c) => {
 	}
 })
 
+/**
+ * Simulation d'anomalies pour tests (développement uniquement)
+ * POST /simulate/:condition
+ */
+monitoring.post("/simulate/:condition", async (c) => {
+	try {
+		const condition = c.req.param("condition") as "high_memory" | "slow_response" | "high_errors" | "disk_full" | "db_overload"
+
+		if (!["high_memory", "slow_response", "high_errors", "disk_full", "db_overload"].includes(condition)) {
+			return c.json(
+				{
+					error: "Condition invalide",
+					available: ["high_memory", "slow_response", "high_errors", "disk_full", "db_overload"],
+					examples: {
+						high_memory: "Simule une utilisation mémoire critique > 85%",
+						slow_response: "Simule des temps de réponse > 2000ms",
+						high_errors: "Simule un taux d'erreur > 10%",
+						disk_full: "Simule un espace disque > 90%",
+						db_overload: "Simule une surcharge DB > 30 connexions",
+					},
+				},
+				400
+			)
+		}
+
+		console.log(`🧪 Déclenchement manuel de simulation: ${condition}`)
+		const alerts = await MonitoringService.simulateCondition(condition)
+
+		return c.json({
+			success: true,
+			message: `Condition '${condition}' simulée avec succès`,
+			alertsGenerated: alerts.length,
+			alerts: alerts,
+			note: "L'anomalie devrait apparaître dans le dashboard dans les 30 secondes.",
+		})
+	} catch (error) {
+		console.error("❌ Erreur lors de la simulation:", error)
+		return c.json(
+			{
+				error: "Erreur lors de la simulation",
+				message: error instanceof Error ? error.message : "Unknown error",
+			},
+			500
+		)
+	}
+})
+
 // Helper function pour convertir le status en valeur numérique
 function getStatusValue(status: string): number {
 	switch (status) {

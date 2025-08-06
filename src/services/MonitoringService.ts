@@ -31,6 +31,11 @@ export interface SystemMetrics {
 		maxDatabase: number
 	}
 	requests: RequestMetrics
+	diskSpace: {
+		used: number
+		total: number
+		percentage: number
+	}
 }
 
 export interface MemoryUsage {
@@ -215,6 +220,7 @@ class MonitoringService {
 		const memoryUsage = this.getMemoryUsage()
 		const dbConnections = await this.getDatabaseConnections()
 		const requestMetrics = this.getRequestMetrics()
+		const diskSpace = await this.getDiskSpace()
 
 		return {
 			uptime,
@@ -225,6 +231,39 @@ class MonitoringService {
 				maxDatabase: dbConnections.max,
 			},
 			requests: requestMetrics,
+			diskSpace,
+		}
+	}
+
+	private async getDiskSpace(): Promise<{ used: number; total: number; percentage: number }> {
+		try {
+			// Utilise la base de données courante plutôt que DATABASE_NAME
+			const result = await this.prisma.$queryRaw<Array<{ size: bigint }>>`
+				SELECT pg_database_size(current_database()) as size
+			`
+
+			const databaseSize = Number(result[0]?.size || 0)
+
+			// Pour l'espace total disque, utilise une approximation basée sur pg_size_pretty et l'espace tablespace
+			const tablespaceResult = await this.prisma.$queryRaw<Array<{ total_size: bigint }>>`
+				SELECT COALESCE(
+					(SELECT sum(pg_tablespace_size(oid)) FROM pg_tablespace),
+					pg_database_size(current_database()) * 10
+				) as total_size
+			`
+
+			const totalSpace = Number(tablespaceResult[0]?.total_size || databaseSize * 10)
+			const percentage = totalSpace > 0 ? Math.min(Math.round((databaseSize / totalSpace) * 100), 100) : 0
+
+			return {
+				used: databaseSize,
+				total: totalSpace,
+				percentage,
+			}
+		} catch (error) {
+			console.error("Erreur lors du calcul de l'espace disque:", error)
+			// Retourne des valeurs par défaut en cas d'erreur
+			return { used: 0, total: 0, percentage: 0 }
 		}
 	}
 
@@ -355,6 +394,182 @@ class MonitoringService {
 					currentValue: errorRate,
 					timestamp: new Date().toISOString(),
 				})
+			}
+		}
+
+		// Connexions base de données
+		if (metrics.connections.database > 50) {
+			alerts.push({
+				type: "critical",
+				message: "Nombre de connexions DB critique",
+				service: "database",
+				metric: "connections",
+				threshold: 50,
+				currentValue: metrics.connections.database,
+				timestamp: new Date().toISOString(),
+			})
+		} else if (metrics.connections.database > 30) {
+			alerts.push({
+				type: "warning",
+				message: "Nombre de connexions DB élevé",
+				service: "database",
+				metric: "connections",
+				threshold: 30,
+				currentValue: metrics.connections.database,
+				timestamp: new Date().toISOString(),
+			})
+		}
+
+		// Requêtes par seconde (RPS) - détection de charge excessive
+		if (metrics.requests.rps > 100) {
+			alerts.push({
+				type: "warning",
+				message: "Charge de requêtes très élevée",
+				service: "application",
+				metric: "rps",
+				threshold: 100,
+				currentValue: metrics.requests.rps,
+				timestamp: new Date().toISOString(),
+			})
+		}
+
+		// Détection de pattern d'erreurs répétées
+		if (metrics.requests.total >= 20 && metrics.requests.errors >= 5) {
+			const recentErrorRate = (metrics.requests.errors / metrics.requests.total) * 100
+			if (recentErrorRate > 15) {
+				alerts.push({
+					type: "critical",
+					message: "Pattern d'erreurs répétées détecté",
+					service: "application",
+					metric: "errorPattern",
+					threshold: 15,
+					currentValue: recentErrorRate,
+					timestamp: new Date().toISOString(),
+				})
+			}
+		}
+
+		// Vérification espace disque
+		if (metrics.diskSpace.percentage > 90) {
+			alerts.push({
+				type: "critical",
+				message: "Espace disque critique",
+				service: "storage",
+				metric: "diskSpace",
+				threshold: 90,
+				currentValue: metrics.diskSpace.percentage,
+				timestamp: new Date().toISOString(),
+			})
+		} else if (metrics.diskSpace.percentage > 80) {
+			alerts.push({
+				type: "warning",
+				message: "Espace disque faible",
+				service: "storage",
+				metric: "diskSpace",
+				threshold: 80,
+				currentValue: metrics.diskSpace.percentage,
+				timestamp: new Date().toISOString(),
+			})
+		}
+
+		// Détection de lenteur progressive (si le temps de réponse augmente régulièrement)
+		if (this.responseTimes.length >= 5) {
+			const recent = this.responseTimes.slice(-5)
+			const average = recent.reduce((a, b) => a + b, 0) / recent.length
+			const trend = recent[recent.length - 1] - recent[0]
+
+			if (trend > 500 && average > 800) {
+				alerts.push({
+					type: "warning",
+					message: "Dégradation progressive des performances détectée",
+					service: "application",
+					metric: "performanceTrend",
+					threshold: 500,
+					currentValue: trend,
+					timestamp: new Date().toISOString(),
+				})
+			}
+		}
+
+		return alerts
+	}
+
+	/**
+	 * Méthode de test pour simuler différentes conditions et déclencher des anomalies
+	 */
+	async simulateCondition(condition: "high_memory" | "slow_response" | "high_errors" | "disk_full" | "db_overload"): Promise<AlertConfig[]> {
+		console.log(`🧪 Simulation de condition: ${condition}`)
+
+		const alerts: AlertConfig[] = []
+		const timestamp = new Date().toISOString()
+
+		switch (condition) {
+			case "high_memory":
+				alerts.push({
+					type: "critical",
+					message: "SIMULATION: Utilisation mémoire critique",
+					service: "application",
+					metric: "memory",
+					threshold: 85,
+					currentValue: 95,
+					timestamp,
+				})
+				break
+
+			case "slow_response":
+				alerts.push({
+					type: "warning",
+					message: "SIMULATION: Temps de réponse très élevé",
+					service: "application",
+					metric: "responseTime",
+					threshold: 1000,
+					currentValue: 2500,
+					timestamp,
+				})
+				break
+
+			case "high_errors":
+				alerts.push({
+					type: "critical",
+					message: "SIMULATION: Taux d'erreur critique",
+					service: "application",
+					metric: "errorRate",
+					threshold: 10,
+					currentValue: 25,
+					timestamp,
+				})
+				break
+
+			case "disk_full":
+				alerts.push({
+					type: "critical",
+					message: "SIMULATION: Espace disque critique",
+					service: "storage",
+					metric: "diskSpace",
+					threshold: 90,
+					currentValue: 98,
+					timestamp,
+				})
+				break
+
+			case "db_overload":
+				alerts.push({
+					type: "warning",
+					message: "SIMULATION: Surcharge de la base de données",
+					service: "database",
+					metric: "connections",
+					threshold: 30,
+					currentValue: 45,
+					timestamp,
+				})
+				break
+		}
+
+		// Traiter ces alertes de simulation
+		if (alerts.length > 0) {
+			const { default: AlertService } = await import("./AlertService")
+			for (const alert of alerts) {
+				await AlertService.processAlert(alert)
 			}
 		}
 

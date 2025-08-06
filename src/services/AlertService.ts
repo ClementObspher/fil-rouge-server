@@ -1,4 +1,5 @@
 import { AlertConfig } from "./MonitoringService"
+import AnomalyService from "./AnomalyService"
 
 export interface AlertChannel {
 	type: "email" | "webhook" | "sms" | "slack"
@@ -190,11 +191,32 @@ class AlertService {
 			const alertKey = `${alert.service}_${alert.metric}`
 			const now = Date.now()
 
-			// Vérifie le cooldown
+			// Cooldown adaptatif selon le type d'alerte
+			const getCooldownDuration = (alert: AlertConfig): number => {
+				const baseCooldown = 5 * 60 * 1000 // 5 minutes par défaut
+
+				switch (alert.metric) {
+					case "diskSpace":
+					case "connections":
+						return 15 * 60 * 1000 // 15 minutes pour éviter le spam sur ressources lentes
+					case "errorPattern":
+					case "errorRate":
+						return 2 * 60 * 1000 // 2 minutes pour les erreurs (plus critique)
+					case "performanceTrend":
+						return 10 * 60 * 1000 // 10 minutes pour les tendances
+					case "memory":
+					case "responseTime":
+						return baseCooldown
+					default:
+						return baseCooldown
+				}
+			}
+
 			const lastAlert = this.lastAlerts.get(alertKey)
-			if (lastAlert && now - lastAlert < 5 * 60 * 1000) {
-				// 5 minutes par défaut
-				console.log(`Alert ${alertKey} is in cooldown period`)
+			const cooldownDuration = getCooldownDuration(alert)
+
+			if (lastAlert && now - lastAlert < cooldownDuration) {
+				console.log(`⏳ Alerte ${alertKey} en période de cooldown (${Math.ceil((cooldownDuration - (now - lastAlert)) / 60000)}min restantes)`)
 				return
 			}
 
@@ -211,6 +233,18 @@ class AlertService {
 			const notifications = channels.map((channelId) => this.sendNotification(channelId, message, alert))
 
 			await Promise.allSettled(notifications)
+
+			// Consigne automatiquement l'anomalie dans le système de consignation
+			try {
+				await AnomalyService.logAnomalyFromAlert(alert, {
+					alertChannels: channels,
+					notificationSent: true,
+					alertProcessedAt: new Date().toISOString(),
+				})
+				console.log(`🔍 Anomalie automatiquement consignée pour l'alerte: ${alertKey}`)
+			} catch (error) {
+				console.error("Erreur lors de la consignation de l'anomalie:", error)
+			}
 
 			// Enregistre dans l'historique
 			this.history.push({
@@ -248,11 +282,16 @@ class AlertService {
 
 			const alerts = await MonitoringService.checkThresholds()
 
-			for (const alert of alerts) {
-				await this.processAlert(alert)
+			if (alerts.length > 0) {
+				console.log(`🔍 Détection automatique: ${alerts.length} anomalie(s) trouvée(s)`)
+
+				for (const alert of alerts) {
+					console.log(`  ⚠️ ${alert.type.toUpperCase()}: ${alert.message} (${alert.service}/${alert.metric}: ${alert.currentValue} > ${alert.threshold})`)
+					await this.processAlert(alert)
+				}
 			}
 		} catch (error) {
-			console.error("Erreur lors de la vérification des alertes:", error)
+			console.error("❌ Erreur lors de la vérification des alertes:", error)
 		}
 	}
 

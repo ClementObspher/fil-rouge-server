@@ -131,6 +131,11 @@ class LoggerService {
 	 * Log spécialisé pour les requêtes HTTP
 	 */
 	logRequest(data: { method: string; path: string; statusCode: number; responseTime: number; ip: string; userAgent: string; requestId: string; isError?: boolean }): void {
+		// Filtrer les routes de monitoring et d'anomalies des logs internes
+		if (data.path.includes("/monitoring") || data.path.includes("/anomalies")) {
+			return
+		}
+
 		const level = data.isError ? "error" : data.responseTime > 1000 ? "warn" : "info"
 		const message = `${data.method} ${data.path} - ${data.statusCode} (${data.responseTime}ms)`
 
