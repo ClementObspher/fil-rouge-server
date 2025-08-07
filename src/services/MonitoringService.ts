@@ -25,7 +25,7 @@ export interface SystemMetrics {
 	uptime: number
 	responseTime: number
 	memoryUsage: MemoryUsage
-	cpuUsage?: number
+	cpuUsage: CpuUsage
 	connections: {
 		database: number
 		maxDatabase: number
@@ -43,6 +43,12 @@ export interface MemoryUsage {
 	total: number
 	percentage: number
 	free: number
+}
+
+export interface CpuUsage {
+	used: number
+	total: number
+	percentage: number
 }
 
 export interface RequestMetrics {
@@ -218,6 +224,7 @@ class MonitoringService {
 	async getSystemMetrics(): Promise<SystemMetrics> {
 		const uptime = Math.floor((Date.now() - this.startTime) / 1000)
 		const memoryUsage = this.getMemoryUsage()
+		const cpuUsage = await this.getCpuUsage()
 		const dbConnections = await this.getDatabaseConnections()
 		const requestMetrics = this.getRequestMetrics()
 		const diskSpace = await this.getDiskSpace()
@@ -226,6 +233,7 @@ class MonitoringService {
 			uptime,
 			responseTime: requestMetrics.averageResponseTime,
 			memoryUsage,
+			cpuUsage,
 			connections: {
 				database: dbConnections.active,
 				maxDatabase: dbConnections.max,
@@ -235,6 +243,33 @@ class MonitoringService {
 		}
 	}
 
+	/**
+	 * Calcule l'usage du CPU
+	 */
+	private async getCpuUsage(): Promise<CpuUsage> {
+		const startUsage = process.cpuUsage()
+		const startTime = process.hrtime()
+
+		await new Promise((resolve) => setTimeout(resolve, 100))
+
+		const elapsedHr = process.hrtime(startTime)
+		const elapsedMicros = elapsedHr[0] * 1e6 + elapsedHr[1] / 1000
+
+		const cpuDiff = process.cpuUsage(startUsage)
+		const used = cpuDiff.user + cpuDiff.system
+
+		const percentage = Math.min((used / elapsedMicros) * 100, 100)
+
+		return {
+			used,
+			total: elapsedMicros,
+			percentage,
+		}
+	}
+
+	/**
+	 * Calcule l'espace disque utilisé
+	 */
 	private async getDiskSpace(): Promise<{ used: number; total: number; percentage: number }> {
 		try {
 			// Utilise la base de données courante plutôt que DATABASE_NAME
@@ -489,6 +524,29 @@ class MonitoringService {
 					timestamp: new Date().toISOString(),
 				})
 			}
+		}
+
+		// Vérification de l'usage du CPU
+		if (metrics.cpuUsage.percentage > 85) {
+			alerts.push({
+				type: "warning",
+				message: "Utilisation CPU élevée",
+				service: "application",
+				metric: "cpuUsage",
+				threshold: 85,
+				currentValue: metrics.cpuUsage.percentage,
+				timestamp: new Date().toISOString(),
+			})
+		} else if (metrics.cpuUsage.percentage > 95) {
+			alerts.push({
+				type: "critical",
+				message: "Utilisation CPU critique",
+				service: "application",
+				metric: "cpuUsage",
+				threshold: 95,
+				currentValue: metrics.cpuUsage.percentage,
+				timestamp: new Date().toISOString(),
+			})
 		}
 
 		return alerts

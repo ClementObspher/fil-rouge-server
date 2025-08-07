@@ -15,18 +15,17 @@ import privateMessageReaction from "./routes/private_message_reaction"
 import monitoring from "./routes/monitoring"
 import anomaly from "./routes/anomaly"
 import adminAuth from "./routes/adminAuth"
-import { webAuthMiddleware } from "./middleware/adminAuth"
 import { authMiddleware } from "./middleware/auth"
 import { monitoringMiddleware, securityMonitoringMiddleware, businessMetricsMiddleware, rateLimitingMiddleware } from "./middleware/monitoring"
 import { useApitally } from "apitally/hono"
-
-// Importer AlertService pour démarrer le système automatique de détection d'anomalies
 import AlertService from "./services/AlertService"
 
 const app = new Hono()
 
 // Démarrage du système de monitoring automatique
-console.log("🤖 Système de détection automatique d'anomalies démarré (vérification toutes les 30s)")
+AlertService.init()
+console.log(`📊 Canaux d'alerte configurés: ${AlertService.getChannels().length}`)
+console.log(`📋 Règles d'alerte actives: ${AlertService.getActiveRules().length}`)
 
 useApitally(app, {
 	clientId: "89c964a5-16d6-444e-a86b-0d2610659ad4",
@@ -41,15 +40,7 @@ useApitally(app, {
 
 // Middleware globaux
 app.use("*", cors())
-app.use(
-	"*",
-	logger((str, req) => {
-		if (str.includes("/monitoring") || str.includes("/anomalies")) {
-			return
-		}
-		return str
-	})
-)
+app.use("*", logger())
 app.use("*", prettyJSON())
 
 // Middleware de monitoring

@@ -1,4 +1,4 @@
-import { writeFileSync, appendFileSync, existsSync, mkdirSync } from "fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "fs"
 import { join } from "path"
 
 export interface LogEntry {
@@ -12,8 +12,6 @@ export interface LogEntry {
 
 class LoggerService {
 	private logsDir: string
-	private maxFileSize = 10 * 1024 * 1024 // 10MB
-	private maxFiles = 5
 
 	constructor() {
 		this.logsDir = join(process.cwd(), "logs")
@@ -199,7 +197,7 @@ class LoggerService {
 			}
 
 			// Lecture simple - en production, utiliser des outils comme tail
-			const content = require("fs").readFileSync(filePath, "utf8")
+			const content = readFileSync(filePath, "utf8")
 			const allLines = content.split("\n").filter((line: string) => line.trim())
 
 			return allLines.slice(-lines)

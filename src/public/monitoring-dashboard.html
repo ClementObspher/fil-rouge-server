@@ -673,6 +673,11 @@
                 <div class="metric-unit">%</div>
             </div>
             <div class="metric-card">
+                <div class="metric-title">Utilisation CPU</div>
+                <div class="metric-value" id="cpu-usage">--</div>
+                <div class="metric-unit">%</div>
+            </div>
+            <div class="metric-card">
                 <div class="metric-title">Requêtes Totales</div>
                 <div class="metric-value" id="total-requests">--</div>
                 <div class="metric-unit">req</div>
@@ -981,6 +986,7 @@
             document.getElementById('version').textContent = data.version;
             document.getElementById('response-time').textContent = data.metrics.responseTime;
             document.getElementById('memory-usage').textContent = data.metrics.memoryUsage.percentage.toFixed(1);
+            document.getElementById('cpu-usage').textContent = data.metrics.cpuUsage.percentage.toFixed(1);
             document.getElementById('total-requests').textContent = data.metrics.requests.total;
             document.getElementById('error-rate').textContent =
                 data.metrics.requests.total > 0

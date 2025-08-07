@@ -43,9 +43,15 @@ class AlertService {
 	constructor() {
 		this.initializeDefaultChannels()
 		this.initializeDefaultRules()
+	}
 
+	/**
+	 * Initialise le système de détection automatique d'anomalies
+	 */
+	init(): void {
 		// Démarrer le processus de vérification périodique
 		setInterval(() => this.checkAlerts(), 30000) // Toutes les 30 secondes
+		console.log("🤖 AlertService initialisé - Vérification automatique des anomalies toutes les 30s")
 	}
 
 	/**
@@ -181,6 +187,35 @@ class AlertService {
 			cooldown: 5,
 			enabled: true,
 		})
+
+		// Règle pour l'usage du CPU élevé
+		this.rules.set("cpu-usage-high", {
+			id: "cpu-usage-high",
+			name: "Utilisation CPU Élevée",
+			condition: {
+				metric: "cpu_usage_percent",
+				operator: "gt",
+				threshold: 85,
+				duration: 60, // 1 minute
+			},
+			channels: ["email-ops", "slack-alerts"],
+			cooldown: 10,
+			enabled: true,
+		})
+
+		// Règle pour l'usage du CPU critique
+		this.rules.set("cpu-usage-critical", {
+			id: "cpu-usage-critical",
+			name: "Utilisation CPU Critique",
+			condition: {
+				metric: "cpu_usage_percent",
+				operator: "gt",
+				threshold: 95,
+			},
+			channels: ["email-ops", "slack-alerts", "sms-critical"],
+			cooldown: 5,
+			enabled: true,
+		})
 	}
 
 	/**
@@ -205,6 +240,7 @@ class AlertService {
 					case "performanceTrend":
 						return 10 * 60 * 1000 // 10 minutes pour les tendances
 					case "memory":
+					case "cpu_usage_percent":
 					case "responseTime":
 						return baseCooldown
 					default:

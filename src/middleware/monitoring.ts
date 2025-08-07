@@ -1,6 +1,7 @@
 import { Context, Next } from "hono"
 import MonitoringService from "../services/MonitoringService"
 import LoggerService from "../services/LoggerService"
+import PrometheusMetricsService from "../services/PrometheusMetricsService"
 
 /**
  * Middleware de monitoring pour capturer les métriques de requêtes
@@ -29,6 +30,9 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 
 		// Enregistre les métriques
 		MonitoringService.recordRequest(path, responseTime, isError)
+
+		// Enregistre aussi dans Prometheus
+		PrometheusMetricsService.recordHttpRequest(method, path, statusCode, responseTime)
 
 		// Log structuré pour analyse
 		const logData = {
@@ -64,6 +68,9 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 
 		// Enregistre l'erreur
 		MonitoringService.recordRequest(path, responseTime, true)
+
+		// Enregistre aussi dans Prometheus
+		PrometheusMetricsService.recordHttpRequest(method, path, 500, responseTime)
 
 		// Log de l'erreur avec le service
 		LoggerService.error(

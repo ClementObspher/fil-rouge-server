@@ -3,6 +3,7 @@ import { readFileSync } from "fs"
 import { join } from "path"
 import MonitoringService from "../services/MonitoringService"
 import LoggerService from "../services/LoggerService"
+import PrometheusMetricsService from "../services/PrometheusMetricsService"
 
 const monitoring = new Hono()
 
@@ -102,57 +103,14 @@ monitoring.get("/health/detailed", async (c) => {
  */
 monitoring.get("/metrics", async (c) => {
 	try {
+		// Récupération du statut de santé pour mettre à jour les métriques
 		const healthStatus = await MonitoringService.getHealthStatus()
-		const metrics = healthStatus.metrics
 
-		// Format Prometheus
-		const prometheusMetrics = `
-# HELP app_uptime_seconds Application uptime in seconds
-# TYPE app_uptime_seconds counter
-app_uptime_seconds ${metrics.uptime}
+		// Mise à jour des métriques avec les données actuelles
+		PrometheusMetricsService.updateMetrics(healthStatus)
 
-# HELP app_memory_usage_bytes Memory usage in bytes
-# TYPE app_memory_usage_bytes gauge
-app_memory_usage_bytes{type="used"} ${metrics.memoryUsage.used}
-app_memory_usage_bytes{type="total"} ${metrics.memoryUsage.total}
-app_memory_usage_bytes{type="free"} ${metrics.memoryUsage.free}
-
-# HELP app_memory_usage_percent Memory usage percentage
-# TYPE app_memory_usage_percent gauge
-app_memory_usage_percent ${metrics.memoryUsage.percentage}
-
-# HELP app_response_time_ms Average response time in milliseconds
-# TYPE app_response_time_ms gauge
-app_response_time_ms ${metrics.responseTime}
-
-# HELP app_requests_total Total number of requests
-# TYPE app_requests_total counter
-app_requests_total ${metrics.requests.total}
-
-# HELP app_requests_errors_total Total number of error requests
-# TYPE app_requests_errors_total counter
-app_requests_errors_total ${metrics.requests.errors}
-
-# HELP app_requests_per_second Requests per second
-# TYPE app_requests_per_second gauge
-app_requests_per_second ${metrics.requests.rps}
-
-# HELP app_database_connections Active database connections
-# TYPE app_database_connections gauge
-app_database_connections{type="active"} ${metrics.connections.database}
-app_database_connections{type="max"} ${metrics.connections.maxDatabase}
-
-# HELP app_service_status Service health status (1=healthy, 0.5=degraded, 0=unhealthy)
-# TYPE app_service_status gauge
-app_service_status{service="database"} ${getStatusValue(healthStatus.services.database.status)}
-app_service_status{service="storage"} ${getStatusValue(healthStatus.services.storage.status)}
-app_service_status{service="application"} ${getStatusValue(healthStatus.services.application.status)}
-
-# HELP app_service_response_time_ms Service response time in milliseconds
-# TYPE app_service_response_time_ms gauge
-app_service_response_time_ms{service="database"} ${healthStatus.services.database.responseTime || 0}
-app_service_response_time_ms{service="storage"} ${healthStatus.services.storage.responseTime || 0}
-    `.trim()
+		// Génération automatique du format Prometheus
+		const prometheusMetrics = await PrometheusMetricsService.getMetrics()
 
 		return c.text(prometheusMetrics, 200, {
 			"Content-Type": "text/plain; version=0.0.4; charset=utf-8",
