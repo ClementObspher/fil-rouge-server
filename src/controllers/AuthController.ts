@@ -3,6 +3,7 @@ import { AuthService } from "../services/AuthService"
 import { User } from "@prisma/client"
 import { uploadImage } from "../lib/minioController"
 import { UserService } from "../services/UserService"
+import { logAuthFailure } from "../middleware/monitoring"
 
 const authService = new AuthService()
 const userService = new UserService()
@@ -18,6 +19,13 @@ export class AuthController {
 			const result = await authService.login(email, password)
 			return c.json(result)
 		} catch (error) {
+			// Log de l'échec d'authentification pour déclenchement brute force
+			const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
+			const userAgent = c.req.header("user-agent") || "unknown"
+			const requestId = c.req.header("x-request-id") || "unknown"
+			
+			logAuthFailure(ip, userAgent, c.req.path, requestId)
+			
 			if (error instanceof Error) {
 				return c.json({ error: error.message }, 401)
 			}

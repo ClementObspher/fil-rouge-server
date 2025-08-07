@@ -1,8 +1,12 @@
 import { Hono } from "hono"
 import { sign } from "jsonwebtoken"
+import { bruteForceProtectionMiddleware, logAuthFailure } from "../middleware/monitoring"
 
 const app = new Hono()
 const JWT_SECRET = process.env.JWT_SECRET || "votre_secret_jwt"
+
+// Application du middleware de protection brute force
+app.use("/*", bruteForceProtectionMiddleware)
 
 /**
  * POST /admin/login - Authentification admin
@@ -39,6 +43,13 @@ app.post("/login", async (c) => {
 				},
 			})
 		} else {
+			// Log de l'échec d'authentification pour déclenchement brute force
+			const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
+			const userAgent = c.req.header("user-agent") || "unknown"
+			const requestId = c.req.header("x-request-id") || "unknown"
+			
+			logAuthFailure(ip, userAgent, c.req.path, requestId)
+			
 			return c.json(
 				{
 					success: false,
