@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import minioClient from "../lib/minioClient"
+import prisma from "../lib/prisma"
 
 export interface HealthStatus {
 	status: "healthy" | "degraded" | "unhealthy"
@@ -68,7 +69,7 @@ export interface AlertConfig {
 	timestamp: string
 }
 
-class MonitoringService {
+export class MonitoringService {
 	private prisma: PrismaClient
 	private startTime: number
 	private requestMetrics: Map<string, number[]> = new Map()
@@ -77,7 +78,7 @@ class MonitoringService {
 	private responseTimes: number[] = []
 
 	constructor() {
-		this.prisma = new PrismaClient()
+		this.prisma = prisma
 		this.startTime = Date.now()
 
 		// Nettoyer les métriques toutes les heures

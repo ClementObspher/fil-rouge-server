@@ -1,8 +1,11 @@
 import { Hono } from "hono"
 import { UserController } from "../controllers/UserController"
+import { UserService } from "../services/UserService"
+import { uploadSingle } from "../middleware/upload"
 
 const user = new Hono()
-const userController = new UserController()
+const userService = new UserService()
+const userController = new UserController(userService)
 
 user.get("/", (c) => userController.getAll(c))
 
@@ -19,7 +22,7 @@ user.post("/friend-requests/cancel", (c) => userController.cancelFriendRequest(c
 user.get("/friend-requests/received", (c) => userController.getPendingFriendRequests(c))
 user.get("/friend-requests/sent", (c) => userController.getSentFriendRequests(c))
 
-user.post("/avatar", (c) => userController.updateAvatar(c))
+user.post("/avatar", uploadSingle("avatar"), (c) => userController.updateAvatar(c))
 
 // Route générique avec paramètre /:id EN DERNIER
 user.get("/:id", (c) => userController.getById(c))

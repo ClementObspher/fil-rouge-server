@@ -4,12 +4,16 @@ import * as bcrypt from "bcrypt"
 const prisma = new PrismaClient()
 
 async function main() {
-	// Nettoyage de la base de données
+	// Nettoyage de la base de données (dans l'ordre pour éviter les contraintes de clé étrangère)
+	await prisma.privateMessageReaction.deleteMany()
+	await prisma.privateMessage.deleteMany()
+	await prisma.conversation.deleteMany()
 	await prisma.messageReaction.deleteMany()
 	await prisma.message.deleteMany()
 	await prisma.eventImage.deleteMany()
 	await prisma.event.deleteMany()
 	await prisma.address.deleteMany()
+	await prisma.friendRequest.deleteMany()
 	await prisma.user.deleteMany()
 
 	// Création des utilisateurs

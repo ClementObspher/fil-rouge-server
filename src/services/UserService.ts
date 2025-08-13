@@ -1,14 +1,20 @@
-import { User, FriendRequestStatus } from "@prisma/client"
+import { User, FriendRequestStatus, PrismaClient } from "@prisma/client"
 import { hash } from "bcrypt"
 import prisma from "../lib/prisma"
 
 export class UserService {
+	private prismaClient: PrismaClient
+
+	constructor(prismaClient?: PrismaClient) {
+		this.prismaClient = prismaClient || prisma
+	}
+
 	async findAll(): Promise<User[]> {
-		return prisma.user.findMany()
+		return this.prismaClient.user.findMany()
 	}
 
 	async findById(id: string): Promise<Omit<User, "password"> | null> {
-		return prisma.user.findUnique({
+		return this.prismaClient.user.findUnique({
 			where: { id },
 			omit: {
 				password: true,
@@ -18,7 +24,7 @@ export class UserService {
 
 	async create(data: Omit<User, "id" | "createdAt" | "updatedAt">): Promise<User> {
 		const hashedPassword = await hash(data.password, 10)
-		return prisma.user.create({
+		return this.prismaClient.user.create({
 			data: {
 				...data,
 				password: hashedPassword,
@@ -30,14 +36,14 @@ export class UserService {
 		if (data.password) {
 			data.password = await hash(data.password, 10)
 		}
-		return prisma.user.update({
+		return this.prismaClient.user.update({
 			where: { id },
 			data,
 		})
 	}
 
 	async delete(id: string): Promise<User> {
-		return prisma.user.delete({
+		return this.prismaClient.user.delete({
 			where: { id },
 		})
 	}
@@ -49,14 +55,14 @@ export class UserService {
 		}
 
 		// Vérifier que les deux utilisateurs existent
-		const [sender, receiver] = await Promise.all([prisma.user.findUnique({ where: { id: userId } }), prisma.user.findUnique({ where: { id: friendId } })])
+		const [sender, receiver] = await Promise.all([this.prismaClient.user.findUnique({ where: { id: userId } }), this.prismaClient.user.findUnique({ where: { id: friendId } })])
 
 		if (!sender || !receiver) {
 			throw new Error("Utilisateur non trouvé")
 		}
 
 		// Vérifier qu'ils ne sont pas déjà amis
-		const existingFriendship = await prisma.user.findFirst({
+		const existingFriendship = await this.prismaClient.user.findFirst({
 			where: {
 				id: userId,
 				User_A: { some: { id: friendId } },
@@ -68,7 +74,7 @@ export class UserService {
 		}
 
 		// Vérifier s'il y a une demande d'ami existante (peu importe le statut)
-		const existingRequest = await prisma.friendRequest.findFirst({
+		const existingRequest = await this.prismaClient.friendRequest.findFirst({
 			where: {
 				OR: [
 					{ senderId: userId, receiverId: friendId },
@@ -82,14 +88,14 @@ export class UserService {
 				throw new Error("Une demande d'ami est déjà en attente entre ces utilisateurs")
 			} else {
 				// Si une demande existe avec un autre statut, la supprimer et en créer une nouvelle
-				await prisma.friendRequest.delete({
+				await this.prismaClient.friendRequest.delete({
 					where: { id: existingRequest.id },
 				})
 			}
 		}
 
 		// Créer la nouvelle demande d'ami
-		await prisma.friendRequest.create({
+		await this.prismaClient.friendRequest.create({
 			data: {
 				senderId: userId,
 				receiverId: friendId,
@@ -101,7 +107,7 @@ export class UserService {
 	}
 
 	async acceptFriendRequest(requestId: string, userId: string): Promise<User> {
-		const request = await prisma.friendRequest.findUnique({
+		const request = await this.prismaClient.friendRequest.findUnique({
 			where: { id: requestId },
 			include: { sender: true, receiver: true },
 		})
@@ -119,7 +125,7 @@ export class UserService {
 		}
 
 		// Utiliser une transaction pour s'assurer de la cohérence
-		await prisma.$transaction(async (tx) => {
+		await this.prismaClient.$transaction(async (tx) => {
 			// Mettre à jour le statut de la demande
 			await tx.friendRequest.update({
 				where: { id: requestId },
@@ -146,7 +152,7 @@ export class UserService {
 	}
 
 	async declineFriendRequest(requestId: string, userId: string): Promise<void> {
-		const request = await prisma.friendRequest.findUnique({
+		const request = await this.prismaClient.friendRequest.findUnique({
 			where: { id: requestId },
 		})
 
@@ -162,21 +168,21 @@ export class UserService {
 			throw new Error("Cette demande a déjà été traitée")
 		}
 
-		await prisma.friendRequest.update({
+		await this.prismaClient.friendRequest.update({
 			where: { id: requestId },
 			data: { status: FriendRequestStatus.DECLINED },
 		})
 	}
 
 	async cancelFriendRequest(userId: string, requestId: string): Promise<void> {
-		await prisma.friendRequest.update({
+		await this.prismaClient.friendRequest.update({
 			where: { id: requestId, senderId: userId },
 			data: { status: FriendRequestStatus.CANCELLED },
 		})
 	}
 
 	async getPendingFriendRequests(userId: string): Promise<any[]> {
-		return prisma.friendRequest.findMany({
+		return this.prismaClient.friendRequest.findMany({
 			where: {
 				receiverId: userId,
 				status: FriendRequestStatus.PENDING,
@@ -196,7 +202,7 @@ export class UserService {
 	}
 
 	async getSentFriendRequests(userId: string): Promise<any[]> {
-		return prisma.friendRequest.findMany({
+		return this.prismaClient.friendRequest.findMany({
 			where: {
 				senderId: userId,
 				status: FriendRequestStatus.PENDING,
@@ -216,7 +222,7 @@ export class UserService {
 	}
 
 	async addFriend(userId: string, friendId: string): Promise<User> {
-		return prisma.user.update({
+		return this.prismaClient.user.update({
 			where: { id: userId },
 			data: {
 				User_A: {
@@ -227,7 +233,7 @@ export class UserService {
 	}
 
 	async getFriends(userId: string): Promise<User[]> {
-		const user = await prisma.user.findUnique({
+		const user = await this.prismaClient.user.findUnique({
 			where: { id: userId },
 			include: { User_A: true, User_B: true },
 		})
@@ -236,7 +242,7 @@ export class UserService {
 
 	async removeFriend(userId: string, friendId: string): Promise<User> {
 		// Utiliser une transaction pour s'assurer de la cohérence
-		await prisma.$transaction(async (tx) => {
+		await this.prismaClient.$transaction(async (tx) => {
 			// Supprimer la relation d'amitié bidirectionnelle
 			await tx.user.update({
 				where: { id: userId },
@@ -263,11 +269,11 @@ export class UserService {
 			})
 		})
 
-		return prisma.user.findUnique({ where: { id: userId } }) as Promise<User>
+		return this.prismaClient.user.findUnique({ where: { id: userId } }) as Promise<User>
 	}
 
 	async updateAvatar(userId: string, imageUrl: string): Promise<void> {
-		await prisma.user.update({
+		await this.prismaClient.user.update({
 			where: { id: userId },
 			data: { avatar: imageUrl },
 		})

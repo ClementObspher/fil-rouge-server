@@ -931,10 +931,19 @@
         let currentAnomalies = [];
 
         async function fetchData() {
+            console.log(localStorage.getItem('admin-token'));
             try {
                 const [healthResponse, alertsResponse, anomaliesResponse, anomalyStatsResponse] = await Promise.all([
-                    fetch('/monitoring/health'),
-                    fetch('/monitoring/alerts'),
+                    fetch('/monitoring/health', {
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('admin-token')
+                        }
+                    }),
+                    fetch('/monitoring/alerts', {
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('admin-token')
+                        }
+                    }),
                     fetch('/api/anomalies?limit=10', {
                         headers: {
                             'Authorization': 'Bearer ' + localStorage.getItem('admin-token')

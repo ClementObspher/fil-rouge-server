@@ -2,6 +2,7 @@ import { Context, Next } from "hono"
 import MonitoringService from "../services/MonitoringService"
 import LoggerService from "../services/LoggerService"
 import PrometheusMetricsService from "../services/PrometheusMetricsService"
+import AnomalyService from "../services/AnomalyService"
 
 // Store pour la détection de brute force
 interface BruteForceAttempt {
@@ -29,19 +30,16 @@ const BRUTE_FORCE_CONFIG = {
 setInterval(() => {
 	const now = Date.now()
 	const keysToDelete: string[] = []
-	
+
 	bruteForceStore.forEach((attempt, key) => {
 		// Marquer les entrées expirées pour suppression
-		if (
-			(!attempt.blocked && now - attempt.lastAttempt > BRUTE_FORCE_CONFIG.timeWindow) ||
-			(attempt.blocked && attempt.blockedUntil && now > attempt.blockedUntil)
-		) {
+		if ((!attempt.blocked && now - attempt.lastAttempt > BRUTE_FORCE_CONFIG.timeWindow) || (attempt.blocked && attempt.blockedUntil && now > attempt.blockedUntil)) {
 			keysToDelete.push(key)
 		}
 	})
-	
+
 	// Supprimer les entrées expirées
-	keysToDelete.forEach(key => bruteForceStore.delete(key))
+	keysToDelete.forEach((key) => bruteForceStore.delete(key))
 }, BRUTE_FORCE_CONFIG.cleanupInterval)
 
 /**
@@ -371,10 +369,10 @@ export const rateLimitingMiddleware = (maxRequests: number = 100, windowMs: numb
 function checkBruteForcePattern(ip: string, path: string, requestId: string): void {
 	const now = Date.now()
 	const key = `${ip}:${path}`
-	
+
 	// Récupérer ou créer l'entrée pour cette IP/path
 	let attempt = bruteForceStore.get(key)
-	
+
 	if (!attempt) {
 		// Première tentative pour cette IP/path
 		attempt = {
@@ -388,7 +386,7 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		bruteForceStore.set(key, attempt)
 		return
 	}
-	
+
 	// Vérifier si le blocage est encore actif
 	if (attempt.blocked && attempt.blockedUntil && now < attempt.blockedUntil) {
 		console.error("🚫 Tentative d'accès bloquée (brute force):", {
@@ -403,7 +401,7 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		})
 		return
 	}
-	
+
 	// Réinitialiser si la fenêtre de temps est expirée
 	if (now - attempt.firstAttempt > BRUTE_FORCE_CONFIG.timeWindow) {
 		attempt.attempts = 1
@@ -414,16 +412,16 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		bruteForceStore.set(key, attempt)
 		return
 	}
-	
+
 	// Incrémenter les tentatives
 	attempt.attempts++
 	attempt.lastAttempt = now
-	
+
 	// Vérifier si le seuil est dépassé
 	if (attempt.attempts >= BRUTE_FORCE_CONFIG.maxAttempts) {
 		attempt.blocked = true
 		attempt.blockedUntil = now + BRUTE_FORCE_CONFIG.blockDuration
-		
+
 		console.error("🚨 BRUTE FORCE DÉTECTÉ - IP BLOQUÉE:", {
 			timestamp: new Date().toISOString(),
 			type: "brute_force_detected",
@@ -435,13 +433,14 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 			blockDuration: BRUTE_FORCE_CONFIG.blockDuration / 1000 / 60, // en minutes
 			severity: "critical",
 		})
-		
+
 		// Déclencher une alerte via le système d'anomalies
 		try {
-			const { default: AnomalyService } = require("../services/AnomalyService")
 			AnomalyService.logManualAnomaly({
 				title: `Attaque brute force détectée depuis ${ip}`,
-				description: `Détection de ${attempt.attempts} tentatives d'authentification échec sur ${path} en ${BRUTE_FORCE_CONFIG.timeWindow / 1000 / 60} minutes. IP automatiquement bloquée.`,
+				description: `Détection de ${attempt.attempts} tentatives d'authentification échec sur ${path} en ${
+					BRUTE_FORCE_CONFIG.timeWindow / 1000 / 60
+				} minutes. IP automatiquement bloquée.`,
 				severity: "critical",
 				service: "authentication",
 				component: "brute-force-protection",
@@ -473,7 +472,7 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 			severity: "warning",
 		})
 	}
-	
+
 	bruteForceStore.set(key, attempt)
 }
 
@@ -484,27 +483,27 @@ export const bruteForceProtectionMiddleware = async (c: Context, next: Next) => 
 	const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 	const path = c.req.path
 	const now = Date.now()
-	
+
 	// Vérifier seulement les endpoints d'authentification
 	const authPaths = ["/api/auth/login", "/api/auth/register", "/admin/login"]
-	if (!authPaths.some(authPath => path.includes(authPath))) {
+	if (!authPaths.some((authPath) => path.includes(authPath))) {
 		await next()
 		return
 	}
-	
+
 	const key = `${ip}:${path}`
 	const attempt = bruteForceStore.get(key)
-	
+
 	if (attempt?.blocked && attempt.blockedUntil && now < attempt.blockedUntil) {
 		const remainingTime = Math.ceil((attempt.blockedUntil - now) / 1000)
-		
+
 		console.error("🚫 Requête bloquée (IP en brute force):", {
 			timestamp: new Date().toISOString(),
 			ip,
 			path,
 			remainingBlockTime: remainingTime,
 		})
-		
+
 		return c.json(
 			{
 				error: "IP temporairement bloquée pour tentatives répétées",
@@ -514,7 +513,7 @@ export const bruteForceProtectionMiddleware = async (c: Context, next: Next) => 
 			429
 		)
 	}
-	
+
 	await next()
 }
 

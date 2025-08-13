@@ -10,7 +10,7 @@ export interface LogEntry {
 	service: string
 }
 
-class LoggerService {
+export class LoggerService {
 	private logsDir: string
 
 	constructor() {

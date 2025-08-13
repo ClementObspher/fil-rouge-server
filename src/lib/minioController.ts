@@ -1,17 +1,17 @@
-import minioClient from "./minioClient"
+import { Client } from "minio"
 import { v4 as uuidv4 } from "uuid"
 
-export async function uploadImage(file: Buffer, fileName: string): Promise<string> {
+export async function uploadImage(file: Buffer, fileName: string, client: Client): Promise<string> {
 	const bucketName = "images"
 	const objectName = `${uuidv4()}-${fileName}`
 
 	// Assurez-vous que le bucket existe
-	const bucketExists = await minioClient.bucketExists(bucketName)
+	const bucketExists = await client.bucketExists(bucketName)
 	if (!bucketExists) {
-		await minioClient.makeBucket(bucketName, "")
+		await client.makeBucket(bucketName, "")
 	}
 
-	await minioClient.putObject(bucketName, objectName, file)
+	await client.putObject(bucketName, objectName, file)
 
 	return `http://localhost:9000/${bucketName}/${objectName}`
 }

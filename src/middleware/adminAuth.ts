@@ -34,7 +34,7 @@ export async function adminAuthMiddleware(c: Context, next: Next) {
 		const decoded = verify(token, JWT_SECRET) as any
 
 		// Vérifier que c'est un admin
-		if (decoded.role !== "admin") {
+		if (decoded.role !== "ADMIN") {
 			return c.json(
 				{
 					error: "Accès réservé aux administrateurs.",

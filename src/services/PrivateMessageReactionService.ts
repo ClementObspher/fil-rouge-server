@@ -1,19 +1,25 @@
-import { PrivateMessageReaction } from "@prisma/client"
+import { PrivateMessageReaction, PrismaClient } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 export class PrivateMessageReactionService {
+	private prisma: PrismaClient
+
+	constructor(prismaClient?: PrismaClient) {
+		this.prisma = prismaClient || prisma
+	}
+
 	async findAll(): Promise<PrivateMessageReaction[]> {
-		return prisma.privateMessageReaction.findMany()
+		return this.prisma.privateMessageReaction.findMany()
 	}
 
 	async findById(id: string): Promise<PrivateMessageReaction | null> {
-		return prisma.privateMessageReaction.findUnique({
+		return this.prisma.privateMessageReaction.findUnique({
 			where: { id },
 		})
 	}
 
 	async findByMessageId(messageId: string): Promise<PrivateMessageReaction[]> {
-		return prisma.privateMessageReaction.findMany({
+		return this.prisma.privateMessageReaction.findMany({
 			where: { messageId },
 			include: {
 				sender: {
@@ -30,20 +36,20 @@ export class PrivateMessageReactionService {
 	}
 
 	async create(data: Omit<PrivateMessageReaction, "id" | "createdAt" | "updatedAt">): Promise<PrivateMessageReaction> {
-		return prisma.privateMessageReaction.create({
+		return this.prisma.privateMessageReaction.create({
 			data,
 		})
 	}
 
 	async update(id: string, data: Partial<PrivateMessageReaction>): Promise<PrivateMessageReaction> {
-		return prisma.privateMessageReaction.update({
+		return this.prisma.privateMessageReaction.update({
 			where: { id },
 			data,
 		})
 	}
 
 	async delete(id: string): Promise<PrivateMessageReaction> {
-		return prisma.privateMessageReaction.delete({
+		return this.prisma.privateMessageReaction.delete({
 			where: { id },
 		})
 	}

@@ -1,6 +1,6 @@
 import { Registry, Counter, Gauge, Histogram, collectDefaultMetrics } from "prom-client"
 
-class PrometheusMetricsService {
+export class PrometheusMetricsService {
 	private registry: Registry
 
 	// Métriques de base de l'application

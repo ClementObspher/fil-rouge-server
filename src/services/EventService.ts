@@ -1,10 +1,15 @@
-import { Event, Prisma } from "@prisma/client"
+import { Event, Prisma, PrismaClient, EventType } from "@prisma/client"
 import prisma from "../lib/prisma"
-import { EventType } from "../enums/EventType"
 
 export class EventService {
-	async findAll(): Promise<Event[]> {
-		return prisma.event.findMany({
+	private prismaClient: PrismaClient
+
+	constructor(prismaClient?: PrismaClient) {
+		this.prismaClient = prismaClient || prisma
+	}
+
+	async findAll(): Promise<(Event & { participants: any[]; owner: any; address: any })[]> {
+		return this.prismaClient.event.findMany({
 			include: {
 				participants: {
 					select: {
@@ -27,8 +32,8 @@ export class EventService {
 		})
 	}
 
-	async findById(id: string): Promise<Event | null> {
-		return prisma.event.findUnique({
+	async findById(id: string): Promise<(Event & { participants: any[]; owner: any; address: any }) | null> {
+		return this.prismaClient.event.findUnique({
 			where: { id },
 			include: {
 				participants: {
@@ -52,8 +57,8 @@ export class EventService {
 		})
 	}
 
-	async findByUserId(userId: string): Promise<Event[]> {
-		return prisma.event.findMany({
+	async findByUserId(userId: string): Promise<(Event & { participants: any[]; owner: any; address: any })[]> {
+		return this.prismaClient.event.findMany({
 			where: { ownerId: userId },
 			include: {
 				participants: {
@@ -77,8 +82,8 @@ export class EventService {
 		})
 	}
 
-	async findByTypes(types: EventType[]): Promise<Event[]> {
-		return prisma.event.findMany({
+	async findByTypes(types: EventType[]): Promise<(Event & { address: any })[]> {
+		return this.prismaClient.event.findMany({
 			where: { type: { in: types } },
 			include: {
 				address: true,
@@ -86,8 +91,8 @@ export class EventService {
 		})
 	}
 
-	async findByParticipantId(userId: string): Promise<Event[]> {
-		return prisma.event.findMany({
+	async findByParticipantId(userId: string): Promise<(Event & { participants: any[]; owner: any; address: any })[]> {
+		return this.prismaClient.event.findMany({
 			where: { participants: { some: { id: userId } } },
 			include: {
 				participants: {
@@ -111,22 +116,79 @@ export class EventService {
 		})
 	}
 
-	async create(data: Omit<Event, "id" | "createdAt" | "updatedAt">): Promise<Event> {
-		return prisma.event.create({
+	async create(data: Omit<Event, "id" | "createdAt" | "updatedAt">): Promise<Event & { participants: any[]; owner: any; address: any }> {
+		return this.prismaClient.event.create({
 			data,
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 
-	async update(id: string, data: Partial<Prisma.EventUpdateInput>): Promise<Event> {
-		return prisma.event.update({
+	async update(id: string, data: Partial<Prisma.EventUpdateInput>): Promise<Event & { participants: any[]; owner: any; address: any }> {
+		return this.prismaClient.event.update({
 			where: { id },
 			data,
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 
-	async delete(id: string): Promise<Event> {
-		return prisma.event.delete({
+	async delete(id: string): Promise<Event & { participants: any[]; owner: any; address: any }> {
+		return this.prismaClient.event.delete({
 			where: { id },
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				owner: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
+				},
+				address: true,
+			},
 		})
 	}
 }

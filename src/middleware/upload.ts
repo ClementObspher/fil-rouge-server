@@ -47,6 +47,8 @@ export const uploadSingle = (fieldName: string) => {
 							return
 						}
 						;(c.req as any).file = req.file
+						// Stocker les données de formulaire pour que le contrôleur puisse y accéder
+						;(c.req as any).formData = req.body
 						resolve(true)
 					}
 				})

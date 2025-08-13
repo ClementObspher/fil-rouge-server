@@ -81,7 +81,7 @@ export interface AnomalyStats {
 	criticalOpen: number
 }
 
-class AnomalyService {
+export class AnomalyService {
 	private prisma: PrismaClient
 	private anomalies: Map<string, Anomaly> = new Map()
 	private patterns: Map<string, AnomalyPattern> = new Map()

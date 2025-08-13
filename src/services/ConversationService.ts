@@ -1,19 +1,35 @@
-import { Conversation, PrivateMessage } from "@prisma/client"
+import { Conversation, PrivateMessage, PrismaClient } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 export class ConversationService {
+	private prismaClient: PrismaClient
+
+	constructor(prismaClient?: PrismaClient) {
+		this.prismaClient = prismaClient || prisma
+	}
+
 	async createConversation(participants: string[]): Promise<Conversation> {
-		return prisma.conversation.create({
+		return this.prismaClient.conversation.create({
 			data: {
 				participants: {
 					connect: participants.map((id) => ({ id })),
+				},
+			},
+			include: {
+				participants: {
+					select: {
+						id: true,
+						firstname: true,
+						lastname: true,
+						avatar: true,
+					},
 				},
 			},
 		})
 	}
 
 	async getConversationById(id: string): Promise<Conversation | null> {
-		return prisma.conversation.findUnique({
+		return this.prismaClient.conversation.findUnique({
 			where: { id },
 			include: {
 				participants: {
@@ -38,7 +54,7 @@ export class ConversationService {
 	}
 
 	async getConversationsByUserIds(userIds: string[]): Promise<Conversation | null> {
-		return prisma.conversation.findFirst({
+		return this.prismaClient.conversation.findFirst({
 			where: { participants: { some: { id: { in: userIds } } } },
 			include: {
 				participants: {
@@ -63,13 +79,13 @@ export class ConversationService {
 	}
 
 	async getMessagesByConversationId(conversationId: string): Promise<PrivateMessage[]> {
-		return prisma.privateMessage.findMany({
+		return this.prismaClient.privateMessage.findMany({
 			where: { conversationId },
 		})
 	}
 
 	async pushMessage(conversationId: string, senderId: string, message: string): Promise<PrivateMessage> {
-		return prisma.privateMessage.create({
+		return this.prismaClient.privateMessage.create({
 			data: {
 				conversationId,
 				senderId,
@@ -79,7 +95,7 @@ export class ConversationService {
 	}
 
 	async updateMessage(messageId: string, content: string): Promise<PrivateMessage> {
-		return prisma.privateMessage.update({
+		return this.prismaClient.privateMessage.update({
 			where: { id: messageId },
 			data: { content },
 		})

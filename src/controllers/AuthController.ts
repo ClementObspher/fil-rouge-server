@@ -4,11 +4,26 @@ import { User } from "@prisma/client"
 import { uploadImage } from "../lib/minioController"
 import { UserService } from "../services/UserService"
 import { logAuthFailure } from "../middleware/monitoring"
-
-const authService = new AuthService()
-const userService = new UserService()
+import { Client } from "minio"
 
 export class AuthController {
+	private authService: AuthService
+	private userService: UserService
+	private minioClient: Client
+
+	constructor(authService?: AuthService, userService?: UserService, minioClient?: Client) {
+		this.authService = authService || new AuthService()
+		this.userService = userService || new UserService()
+		this.minioClient =
+			minioClient ||
+			new Client({
+				endPoint: process.env.MINIO_ENDPOINT || "localhost",
+				port: parseInt(process.env.MINIO_PORT || "9000"),
+				accessKey: process.env.MINIO_ACCESS_KEY || "minioadmin",
+				secretKey: process.env.MINIO_SECRET_KEY || "minioadmin",
+			})
+	}
+
 	async login(c: Context) {
 		try {
 			const { email, password } = await c.req.json<{
@@ -16,16 +31,16 @@ export class AuthController {
 				password: string
 			}>()
 
-			const result = await authService.login(email, password)
+			const result = await this.authService.login(email, password)
 			return c.json(result)
 		} catch (error) {
 			// Log de l'échec d'authentification pour déclenchement brute force
 			const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 			const userAgent = c.req.header("user-agent") || "unknown"
 			const requestId = c.req.header("x-request-id") || "unknown"
-			
+
 			logAuthFailure(ip, userAgent, c.req.path, requestId)
-			
+
 			if (error instanceof Error) {
 				return c.json({ error: error.message }, 401)
 			}
@@ -43,16 +58,21 @@ export class AuthController {
 
 			const { confirmPassword, ...userData } = data
 
-			const user = await authService.register(userData)
+			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+			if (!emailRegex.test(data.email)) {
+				return c.json({ error: "L'email n'est pas valide" }, 400)
+			}
+
+			const user = await this.authService.register(userData)
 
 			if (data.avatar) {
 				const base64Data = data.avatar.split(",")[1]
 				const buffer = Buffer.from(base64Data, "base64")
-				const avatar = await uploadImage(buffer, `${data.firstname}-${data.lastname}-avatar.jpg`)
-				await userService.updateAvatar(user.id, avatar)
+				const avatar = await uploadImage(buffer, `${data.firstname}-${data.lastname}-avatar.jpg`, this.minioClient)
+				await this.userService.updateAvatar(user.id, avatar)
 			}
 
-			return c.json(user)
+			return c.json(user, 201)
 		} catch (error) {
 			if (error instanceof Error) {
 				return c.json({ error: error.message }, 400)
