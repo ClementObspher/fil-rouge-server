@@ -7,6 +7,27 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-08-14
+
+- - fix: version management workflow
+- - feat: implémenter système de gestion des versions automatisé
+- - :sparkles: Add prisma file
+- - :bug: Fix scripts
+- - :memo: Update swagger doc api
+- - :memo: Add & update documentation
+- - ✨ Brute force middleware
+- - :sparkles: Anomalies
+- - :sparkles: collect anomalies
+- - :sparkles: Monitoring & Alerts
+- - :sparkles: dependency audit
+- - :sparkles: Messages & reactions
+- - :sparkles: Friends & Messages
+- - ♻️ Update BDD structure
+- - :sparkles: Update middleware + update seed file
+- - :memo: openapi swagger
+- - first commit
+
+
 ### Added
 - Système d'authentification avec JWT
 - Gestion des utilisateurs (CRUD)

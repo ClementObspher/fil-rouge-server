@@ -1,6 +1,6 @@
 {
   "name": "fil-rouge-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "prisma:seed": "bun prisma/seed.ts",
