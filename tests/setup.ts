@@ -66,6 +66,19 @@ beforeEach(async () => {
 		await testPrisma.eventImage.deleteMany()
 		await testPrisma.event.deleteMany()
 		await testPrisma.user.deleteMany()
+
+		// Vérifier que la base de données est bien vide
+		const userCount = await testPrisma.user.count()
+		const eventCount = await testPrisma.event.count()
+		const conversationCount = await testPrisma.conversation.count()
+
+		if (userCount > 0 || eventCount > 0 || conversationCount > 0) {
+			console.warn("⚠️ Base de données non complètement nettoyée:", {
+				users: userCount,
+				events: eventCount,
+				conversations: conversationCount,
+			})
+		}
 	} catch (error) {
 		console.warn("Erreur lors du nettoyage de la base de données:", error)
 	}
@@ -79,9 +92,12 @@ afterEach(async () => {
 // Utilitaires pour les tests
 export const testUtils = {
 	// Créer un utilisateur de test
-	async createTestUser(data: { email: string; password: string; firstname: string; lastname: string; bio?: string; birthdate?: Date; nationality?: string }) {
+	async createTestUser(data: { email?: string; password: string; firstname: string; lastname: string; bio?: string; birthdate?: Date; nationality?: string }) {
+		// Générer un email unique si non fourni
+		const uniqueEmail = data.email || `test-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`
+
 		const user = await testPrisma.user.findUnique({
-			where: { email: data.email },
+			where: { email: uniqueEmail },
 		})
 		if (user) {
 			return user
@@ -89,7 +105,7 @@ export const testUtils = {
 		const hashedPassword = await bcrypt.hash(data.password, 10)
 		return await testPrisma.user.create({
 			data: {
-				email: data.email,
+				email: uniqueEmail,
 				password: hashedPassword,
 				firstname: data.firstname,
 				lastname: data.lastname,

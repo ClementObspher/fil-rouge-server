@@ -353,7 +353,6 @@ describe("Routes utilisateurs", () => {
 	describe("POST /api/users/friend-requests/accept", () => {
 		it("devrait accepter une demande d'ami", async () => {
 			const sender = await testUtils.createTestUser({
-				email: "sender@example.com",
 				password: "password123",
 				firstname: "Sender",
 				lastname: "User",
@@ -383,7 +382,6 @@ describe("Routes utilisateurs", () => {
 	describe("POST /api/users/friend-requests/decline", () => {
 		it("devrait refuser une demande d'ami", async () => {
 			const sender = await testUtils.createTestUser({
-				email: "sender@example.com",
 				password: "password123",
 				firstname: "Sender",
 				lastname: "User",
@@ -413,7 +411,6 @@ describe("Routes utilisateurs", () => {
 	describe("POST /api/users/friend-requests/cancel", () => {
 		it("devrait annuler une demande d'ami", async () => {
 			const sender = await testUtils.createTestUser({
-				email: "sender@example.com",
 				password: "password123",
 				firstname: "Sender",
 				lastname: "User",

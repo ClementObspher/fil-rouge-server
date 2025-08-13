@@ -34,7 +34,7 @@ export interface AlertHistory {
 	metadata?: Record<string, any>
 }
 
-class AlertService {
+export class AlertService {
 	private channels: Map<string, AlertChannel> = new Map()
 	private rules: Map<string, AlertRule> = new Map()
 	private history: AlertHistory[] = []

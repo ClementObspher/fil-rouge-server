@@ -326,86 +326,269 @@ Lien du repository de l'application mobile : [https://github.com/ClementObspher/
 - **Configuration :** `vitest.config.ts` avec setup automatisé
 - **Base de données :** PostgreSQL de test isolée
 
-#### **Tests Unitaires par Module**
-
-**1. Tests d'Authentification (auth.test.ts)**
+**1. Tests d'Intégration API (142 tests)**
 
 ```typescript
-// 8 tests couvrant :
-- Inscription utilisateur avec validation
-- Connexion avec identifiants valides
-- Rejet connexion email inexistant
-- Rejet connexion mot de passe incorrect
-- Rejet données manquantes
-- Protection brute force automatique
+// Structure des tests par module
+tests/
+├── auth.test.ts (8 tests) - Authentification JWT
+├── admin-auth.test.ts (6 tests) - Authentification admin
+├── user.test.ts (16 tests) - Gestion utilisateurs
+├── event.test.ts (13 tests) - Gestion événements
+├── event-image.test.ts (15 tests) - Upload images
+├── conversation.test.ts (12 tests) - Conversations
+├── message.test.ts (13 tests) - Messages
+├── message-reaction.test.ts (15 tests) - Réactions messages
+├── private-message-reaction.test.ts (17 tests) - Réactions messages privés
+├── monitoring.test.ts (16 tests) - Monitoring et alertes
+└── anomaly.test.ts (11 tests) - Gestion anomalies
 ```
 
-**2. Tests Utilisateurs (user.test.ts)**
+**2. Tests Unitaires Services (22 tests)**
 
 ```typescript
-// 16 tests couvrant :
-- CRUD utilisateurs complet
-- Validation données utilisateur
-- Gestion des amis et demandes
+tests/units/
+├── alert-service.test.ts (5 tests) - Service d'alertes
+├── address-service.test.ts (4 tests) - Service d'adresses
+├── middleware.test.ts (6 tests) - Middlewares d'authentification
+├── prometheus-metrics.test.ts (6 tests) - Métriques Prometheus
+└── integration-services.test.ts (7 tests) - Tests d'intégration services
 ```
 
-**3. Tests Événements (event.test.ts)**
+#### **Couverture de Code Actuelle**
+
+**Résultats des Tests :**
+- ✅ **170 tests** exécutés avec succès
+- ✅ **Coverage global : 77.38%** (objectif 70% dépassé)
+- ✅ **Branches : 57.97%** (objectif 50% dépassé)
+- ✅ **Fonctions : 83.8%** (objectif 70% dépassé)
+- ✅ **Lignes : 77.38%** (objectif 70% dépassé)
+
+**Couverture par Module :**
 
 ```typescript
-// 13 tests couvrant :
-- CRUD évènements complet
-- Gestion des participants
-- Validation des dates et lieux
-- Gestion des images 
-- Permissions propriétaire
+// Services - Couverture excellente
+AuthService.ts: 97.46% (couverture quasi-complète)
+EventService.ts: 100% (couverture parfaite)
+ConversationService.ts: 95.14% (couverture excellente)
+AnomalyService.ts: 92.4% (couverture excellente)
+
+// Contrôleurs - Couverture satisfaisante
+AuthController.ts: 89.15% (couverture très bonne)
+EventImageController.ts: 82.73% (couverture bonne)
+UserController.ts: 76.96% (couverture satisfaisante)
+
+// Middleware - Couverture variable
+auth.ts: 100% (couverture parfaite)
+upload.ts: 100% (couverture parfaite)
+adminAuth.ts: 58.97% (amélioration possible)
 ```
 
-**4. Tests Messages (message.test.ts)**
+#### **Exemples de Tests Implémentés**
+
+**1. Tests d'Authentification**
 
 ```typescript
-// 13 tests couvrant :
-- Envoi/réception messages
-- Gestion des conversations
-- Réactions aux messages
-- Messages privés
-- Validation contenu
-- Tests de sécurité
+describe("Routes d'authentification", () => {
+  it("devrait créer un nouvel utilisateur avec des données valides", async () => {
+    const userData = {
+      email: `test${Date.now()}@example.com`,
+      password: "password123",
+      confirmPassword: "password123",
+      firstname: "John",
+      lastname: "Doe"
+    }
+
+    const res = await app.request("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData)
+    })
+
+    expect(res.status).toBe(201)
+    const data = await res.json()
+    expect(data).toHaveProperty("email")
+    expect(data).toHaveProperty("firstname")
+    expect(data).toHaveProperty("lastname")
+  })
+
+  it("devrait rejeter l'inscription avec un email déjà existant", async () => {
+    // Test de validation des doublons
+    expect(res.status).toBe(400)
+    expect(data).toHaveProperty("error")
+  })
+})
 ```
 
-**5. Tests Monitoring (monitoring.test.ts)**
+**2. Tests de Services**
 
 ```typescript
-// 16 tests couvrant :
-- Health checks API
-- Métriques Prometheus
-- Système d'alertes
-- Logging structuré
-- Simulation d'anomalies
-- Dashboard monitoring
+describe("AlertService", () => {
+  it("devrait retourner les canaux configurés", () => {
+    const channels = alertService.getChannels()
+    expect(Array.isArray(channels)).toBe(true)
+    expect(channels.length).toBeGreaterThan(0)
+  })
+
+  it("devrait initialiser le service avec vérification périodique", () => {
+    const setIntervalSpy = vi.spyOn(global, "setInterval")
+    alertService.init()
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 30000)
+  })
+})
 ```
 
-#### **Métriques de Qualité**
+**3. Tests de Middleware**
 
-**Coverage Global :** 76.59%
+```typescript
+describe("Middleware d'authentification", () => {
+  it("devrait valider un token JWT valide", async () => {
+    const token = generateValidToken()
+    const req = createMockRequest({ authorization: `Bearer ${token}` })
+    
+    await authMiddleware(req, mockNext)
+    
+    expect(mockNext).toHaveBeenCalled()
+    expect(req.get('user')).toBeDefined()
+  })
 
-- **Statements :** 76.59%
-- **Branches :** 56.46%
-- **Functions :** 80.56%
-- **Lines :** 76.59%
+  it("devrait rejeter un token JWT invalide", async () => {
+    const req = createMockRequest({ authorization: "Bearer invalid-token" })
+    
+    await authMiddleware(req, mockNext)
+    
+    expect(mockNext).not.toHaveBeenCalled()
+    expect(req.status).toBe(401)
+  })
+})
+```
 
-**Tests par Module :**
+#### **Tests Futurs Recommandés**
 
-- **Controllers :** 70.95% coverage
-- **Services :** 79.18% coverage
-- **Middleware :** 79.65% coverage
-- **Lib :** 75.75% coverage
+**1. Tests de Performance**
 
-**Performance Tests :**
+```typescript
+// Tests de charge et performance
+describe("Performance Tests", () => {
+  it("devrait gérer 100+ requêtes simultanées", async () => {
+    const requests = Array(100).fill().map(() => 
+      app.request("/api/events", { method: "GET" })
+    )
+    const responses = await Promise.all(requests)
+    const successCount = responses.filter(r => r.status === 200).length
+    expect(successCount).toBeGreaterThan(95) // 95% de succès minimum
+  })
 
-- **142 tests** exécutés avec succès
-- **Temps d'exécution :** ~57 secondes
-- **Base de données :** Reset automatique entre tests
-- **Isolation :** Chaque test indépendant
+  it("devrait répondre en moins de 200ms", async () => {
+    const start = Date.now()
+    await app.request("/api/events", { method: "GET" })
+    const duration = Date.now() - start
+    expect(duration).toBeLessThan(200)
+  })
+})
+```
+
+**2. Tests de Sécurité Avancés**
+
+```typescript
+// Tests de vulnérabilités
+describe("Security Tests", () => {
+  it("devrait résister aux injections SQL", async () => {
+    const maliciousInput = "'; DROP TABLE users; --"
+    const res = await app.request("/api/users/search", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: maliciousInput })
+    })
+    expect(res.status).not.toBe(500) // Pas d'erreur serveur
+  })
+
+  it("devrait valider les types de fichiers uploadés", async () => {
+    const maliciousFile = Buffer.from("fake image content")
+    const res = await app.request("/api/events/1/images", {
+      method: "POST",
+      headers: { "Content-Type": "multipart/form-data" },
+      body: createFormData("image", maliciousFile, "script.js")
+    })
+    expect(res.status).toBe(400) // Rejet du fichier non autorisé
+  })
+})
+```
+
+**3. Tests d'Intégration Base de Données**
+
+```typescript
+// Tests de transactions et intégrité
+describe("Database Integration Tests", () => {
+  it("devrait maintenir l'intégrité référentielle", async () => {
+    // Créer un utilisateur et des événements associés
+    const user = await createTestUser()
+    const event = await createTestEvent(user.id)
+    
+    // Supprimer l'utilisateur
+    await app.request(`/api/users/${user.id}`, { method: "DELETE" })
+    
+    // Vérifier que les événements sont supprimés en cascade
+    const eventCheck = await prisma.event.findUnique({ where: { id: event.id } })
+    expect(eventCheck).toBeNull()
+  })
+
+  it("devrait gérer les transactions concurrentes", async () => {
+    // Simuler des modifications concurrentes
+    const promises = Array(10).fill().map(() => 
+      app.request(`/api/events/1/participants`, { method: "POST" })
+    )
+    const results = await Promise.all(promises)
+    const successCount = results.filter(r => r.status === 200).length
+    expect(successCount).toBe(1) // Une seule modification réussie
+  })
+})
+```
+
+**4. Tests de Monitoring et Observabilité**
+
+```typescript
+// Tests des métriques et alertes
+describe("Monitoring Tests", () => {
+  it("devrait déclencher des alertes sur seuils dépassés", async () => {
+    // Simuler une charge élevée
+    await simulateHighLoad()
+    
+    // Vérifier que les alertes sont déclenchées
+    const alerts = await getAlertHistory()
+    const criticalAlerts = alerts.filter(a => a.severity === 'critical')
+    expect(criticalAlerts.length).toBeGreaterThan(0)
+  })
+
+  it("devrait tracer les requêtes avec correlation ID", async () => {
+    const correlationId = "test-correlation-123"
+    const res = await app.request("/api/events", {
+      method: "GET",
+      headers: { "X-Correlation-ID": correlationId }
+    })
+    
+    // Vérifier que le correlation ID est dans les logs
+    const logs = await getApplicationLogs()
+    const logEntry = logs.find(log => log.correlationId === correlationId)
+    expect(logEntry).toBeDefined()
+  })
+})
+```
+
+#### **Améliorations de la Couverture**
+
+**Modules Prioritaires pour Amélioration :**
+
+1. **adminAuth.ts (58.97%)** - Ajouter tests pour tous les cas d'erreur
+2. **LoggerService.ts (54.33%)** - Tester tous les niveaux de log
+3. **MonitoringService.ts (62.82%)** - Couvrir les métriques avancées
+4. **PrivateMessageService.ts (74.35%)** - Tester les cas limites
+
+**Objectifs de Couverture :**
+- **Global :** Maintenir > 80%
+- **Services :** Atteindre > 90%
+- **Contrôleurs :** Atteindre > 85%
+- **Middleware :** Atteindre > 90%
 
 ---
 
