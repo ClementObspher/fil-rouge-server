@@ -47,7 +47,7 @@ jobs:
               id: check
               run: |
                   # Récupérer la version actuelle
-                  CURRENT_VERSION=$(bun run -c "console.log(require('./package.json').version)")
+                  CURRENT_VERSION=$(node -p "require('./package.json').version")
                   echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
                   # Vérifier si des changements nécessitent une mise à jour de version
@@ -120,7 +120,7 @@ jobs:
 
                   # Mettre à jour package.json avec Bun
                   # Bun n'a pas de commande version native, on utilise une approche manuelle
-                  CURRENT_VERSION=$(bun run -c "console.log(require('./package.json').version)")
+                  CURRENT_VERSION=$(node -p "require('./package.json').version")
 
                   # Calculer la nouvelle version selon le type
                   IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
