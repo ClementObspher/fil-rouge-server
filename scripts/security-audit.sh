@@ -34,6 +34,10 @@ check_tools() {
         log_warning "npm n'est pas installé, certaines vérifications seront limitées"
     fi
     
+    if ! command -v jq &> /dev/null; then
+        log_warning "jq n'est pas installé, le parsing JSON sera limité"
+    fi
+    
     log_success "Outils vérifiés"
 }
 
@@ -79,10 +83,13 @@ security_audit() {
         npm install --package-lock-only --silent 2>/dev/null || log_warning "Impossible de générer package-lock"
         
         if [ -f package-lock.json ]; then
+            # Audit complet (toutes dépendances) pour le reporting
             npm audit --audit-level=moderate --json > audit.json 2>/dev/null || true
+            # Audit production uniquement pour la décision d'échec
+            npm audit --omit=dev --audit-level=moderate --json > audit-prod.json 2>/dev/null || true
             
-            if [ -f audit.json ] && [ -s audit.json ]; then
-                # Parser les résultats JSON
+            if command -v jq &> /dev/null && [ -s audit.json ]; then
+                # Parser les résultats JSON (format npm audit v2)
                 vulnerabilities=$(jq '.metadata.vulnerabilities.total // 0' audit.json 2>/dev/null || echo 0)
                 critical=$(jq '.metadata.vulnerabilities.critical // 0' audit.json 2>/dev/null || echo 0)
                 high=$(jq '.metadata.vulnerabilities.high // 0' audit.json 2>/dev/null || echo 0)
@@ -95,11 +102,25 @@ security_audit() {
                 echo "- **Modérées**: $moderate" >> audit-report.md
                 echo "- **Faibles**: $low" >> audit-report.md
                 
-                if [ "$critical" -gt 0 ] || [ "$high" -gt 0 ]; then
-                    log_error "Vulnérabilités critiques ou élevées détectées!"
+                # Décision d'échec basée sur les vulnérabilités de prod uniquement
+                prodCritical=0
+                prodHigh=0
+                if command -v jq &> /dev/null && [ -s audit-prod.json ]; then
+                    prodCritical=$(jq '.metadata.vulnerabilities.critical // 0' audit-prod.json 2>/dev/null || echo 0)
+                    prodHigh=$(jq '.metadata.vulnerabilities.high // 0' audit-prod.json 2>/dev/null || echo 0)
+                fi
+                
+                if [ "$prodCritical" -gt 0 ] || [ "$prodHigh" -gt 0 ]; then
+                    log_error "Vulnérabilités critiques ou élevées détectées (production)!"
                     echo "" >> audit-report.md
-                    echo "⚠️ **ACTION REQUISE**: Vulnérabilités critiques détectées" >> audit-report.md
+                    echo "⚠️ **ACTION REQUISE**: Vulnérabilités critiques/élevées en production" >> audit-report.md
+                    echo "Fichier détaillé (production): audit-prod.json" >> audit-report.md
                     exit 1
+                elif [ "$critical" -gt 0 ] || [ "$high" -gt 0 ]; then
+                    log_warning "Vulnérabilités critiques/élevées détectées (dev ou transitoires)"
+                    echo "" >> audit-report.md
+                    echo "⚠️ Vulnérabilités critiques/élevées détectées (hors prod). Revue recommandée." >> audit-report.md
+                    echo "Fichier détaillé: audit.json" >> audit-report.md
                 elif [ "$moderate" -gt 0 ]; then
                     log_warning "Vulnérabilités modérées détectées"
                     echo "" >> audit-report.md
@@ -115,7 +136,7 @@ security_audit() {
             fi
             
             # Nettoyer les fichiers temporaires
-            rm -f audit.json
+            # Conserver audit.json/audit-prod.json comme artefacts de l'audit
             rm -f package-lock.json
             
             # Restaurer le package-lock original s'il existait
@@ -147,8 +168,6 @@ check_licenses() {
             log_warning "Impossible d'analyser les licences"
             echo "⚠️ Analyse des licences non disponible" >> audit-report.md
         fi
-        
-        rm -f licenses.json
     else
         echo "⚠️ npx non disponible pour l'analyse des licences" >> audit-report.md
     fi

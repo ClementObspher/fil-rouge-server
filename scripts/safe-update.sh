@@ -55,23 +55,37 @@ test_application() {
         fi
     fi
     
-    # Test de démarrage (timeout 10 secondes)
+    # Test de démarrage (attente max ~10 secondes)
     log_info "Test de démarrage du serveur..."
-    timeout 10s bun run dev > server-test.log 2>&1 &
+    bun run dev > server-test.log 2>&1 &
     SERVER_PID=$!
     
-    sleep 3
+    ready=""
+    for i in {1..20}; do
+        if curl -fsS http://localhost:3001 > /dev/null 2>&1; then
+            ready=1
+            break
+        fi
+        # Si le processus s'est arrêté prématurément
+        if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            break
+        fi
+        sleep 0.5
+    done
     
-    # Test de réponse HTTP
-    if curl -s http://localhost:3001 > /dev/null 2>&1; then
+    if [ -n "$ready" ]; then
         log_success "Serveur répond correctement"
-        kill $SERVER_PID 2>/dev/null || true
-        return 0
+        result=0
     else
         log_error "Serveur ne répond pas"
-        kill $SERVER_PID 2>/dev/null || true
-        return 1
+        result=1
     fi
+    
+    # Arrêt propre du serveur
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
+    
+    return $result
 }
 
 # Fonction de mise à jour sélective
@@ -146,25 +160,65 @@ analyze_dependencies() {
     local minor_packages=""
     local major_packages=""
     
-    while IFS= read -r line; do
-        if [[ $line =~ ^[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+) ]]; then
-            package="${BASH_REMATCH[1]}"
-            current="${BASH_REMATCH[2]}"
-            update="${BASH_REMATCH[3]}"
-            latest="${BASH_REMATCH[4]}"
-            
-            # Déterminer le type de mise à jour
-            if [[ "$current" == "$update" ]]; then
-                # Mise à jour majeure
-                major_packages="$major_packages $package"
-            elif [[ "$update" == "$latest" ]]; then
-                # Mise à jour mineure
-                minor_packages="$minor_packages $package"
-            else
-                # Mise à jour de patch
-                patch_packages="$patch_packages $package"
-            fi
+    # Fonctions utilitaires pour semver
+    normalize_version() {
+        v="$1"
+        nums=$(echo "$v" | grep -oE '[0-9]+' | head -n3 | tr '\n' ' ')
+        set -- $nums
+        echo "${1:-0} ${2:-0} ${3:-0}"
+    }
+    classify_diff() {
+        # args: current target -> prints: patch|minor|major|none
+        read cmaj cmin cpatch <<< "$(normalize_version "$1")"
+        read tmaj tmin tpatch <<< "$(normalize_version "$2")"
+        if [ "$tmaj" -gt "$cmaj" ]; then
+            echo major; return
         fi
+        if [ "$tmaj" -eq "$cmaj" ] && [ "$tmin" -gt "$cmin" ]; then
+            echo minor; return
+        fi
+        if [ "$tmaj" -eq "$cmaj" ] && [ "$tmin" -eq "$cmin" ] && [ "$tpatch" -gt "$cpatch" ]; then
+            echo patch; return
+        fi
+        echo none
+    }
+    
+    while IFS= read -r line; do
+        # Garder uniquement les lignes de données du tableau
+        if [[ "$line" != *"│"* ]]; then continue; fi
+        if [[ "$line" == *"Package"* ]]; then continue; fi
+        if [[ "$line" == ┌* || "$line" == ├* || "$line" == └* ]]; then continue; fi
+        
+        package=$(echo "$line" | awk -F '│' '{print $2}' | xargs)
+        current=$(echo "$line" | awk -F '│' '{print $3}' | xargs)
+        update=$(echo "$line" | awk -F '│' '{print $4}' | xargs)
+        latest=$(echo "$line" | awk -F '│' '{print $5}' | xargs)
+        
+        # Nettoyage du champ package (retire le suffixe (dev))
+        package=$(echo "$package" | sed -E 's/ \(dev\)$//')
+        
+        # Validation minimale
+        if [ -z "$package" ] || [ -z "$current" ] || [ -z "$update" ] || [ -z "$latest" ]; then
+            continue
+        fi
+        
+        if [ "$update" = "$current" ]; then
+            # Aucun update dans la plage actuelle -> bump majeur seulement disponible
+            major_packages="$major_packages $package"
+            continue
+        fi
+        kind=$(classify_diff "$current" "$update")
+        case "$kind" in
+            patch)
+                patch_packages="$patch_packages $package"
+                ;;
+            minor)
+                minor_packages="$minor_packages $package"
+                ;;
+            major)
+                major_packages="$major_packages $package"
+                ;;
+        esac
     done < outdated.tmp
     
     echo "### Dépendances à Mettre à Jour" >> "$UPDATE_LOG"
