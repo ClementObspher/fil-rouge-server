@@ -1,10 +1,14 @@
 {
   "name": "fil-rouge-server",
+  "version": "1.0.0",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "prisma:seed": "bun prisma/seed.ts",
     "audit": "./scripts/security-audit.sh",
     "update:safe": "./scripts/safe-update.sh",
+    "version:patch": "./scripts/version.sh patch",
+    "version:minor": "./scripts/version.sh minor",
+    "version:major": "./scripts/version.sh major",
     "deps:check": "bun outdated",
     "deps:update": "bun update",
     "deps:update:patch": "bun update --patch",

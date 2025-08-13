@@ -1,0 +1,24 @@
+{
+  "name": "fil-rouge-server",
+  "version": "1.0.0",
+  "description": "Serveur backend pour l'application fil rouge",
+  "main": "src/index.ts",
+  "type": "module",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/fil-rouge-server.git"
+  },
+  "keywords": [
+    "backend",
+    "api",
+    "hono",
+    "prisma",
+    "typescript"
+  ],
+  "author": "Votre Nom",
+  "license": "MIT"
+}

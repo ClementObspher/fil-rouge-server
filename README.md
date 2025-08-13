@@ -1,5 +1,16 @@
 # Fil Rouge Server
 
+## 🚀 Gestion des Versions
+
+Ce projet utilise un système de gestion des versions automatisé. Voir [VERSIONING.md](./VERSIONING.md) pour plus de détails.
+
+### Commandes rapides
+```bash
+bun run version:patch  # Version patch (1.0.0 -> 1.0.1)
+bun run version:minor  # Version mineure (1.0.0 -> 1.1.0)
+bun run version:major  # Version majeure (1.0.0 -> 2.0.0)
+```
+
 ## 📋 Procédures de Déploiement
 
 ```sh

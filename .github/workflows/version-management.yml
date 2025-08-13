@@ -1,0 +1,284 @@
+name: Gestion des Versions et Changelog
+
+on:
+    workflow_dispatch:
+        inputs:
+            version_type:
+                description: "Type de version (major, minor, patch)"
+                required: true
+                default: "patch"
+                type: choice
+                options:
+                    - major
+                    - minor
+                    - patch
+            release_notes:
+                description: "Notes de release (optionnel)"
+                required: false
+                type: string
+    push:
+        branches:
+            - main
+        paths:
+            - "package.json"
+            - "app.json"
+            - "CHANGELOG.md"
+
+jobs:
+    check-version:
+        name: Vérification des Versions
+        runs-on: ubuntu-latest
+        outputs:
+            needs_version_update: ${{ steps.check.outputs.needs_update }}
+            current_version: ${{ steps.check.outputs.current_version }}
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Vérifier les versions
+              id: check
+              run: |
+                  # Récupérer la version actuelle
+                  CURRENT_VERSION=$(bun run -c "console.log(require('./package.json').version)")
+                  echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+                  # Vérifier si des changements nécessitent une mise à jour de version
+                  # Analyser les commits récents pour détecter les changements significatifs
+                  RECENT_COMMITS=$(git log --oneline -20)
+
+                  if echo "$RECENT_COMMITS" | grep -E "(feat|fix|breaking|security|refactor|perf)" > /dev/null; then
+                    echo "needs_update=true" >> $GITHUB_OUTPUT
+                    echo "📦 Version actuelle: $CURRENT_VERSION"
+                    echo "🔄 Mise à jour nécessaire: true"
+                    echo "📝 Changements détectés dans les commits récents"
+                  else
+                    echo "needs_update=false" >> $GITHUB_OUTPUT
+                    echo "📦 Version actuelle: $CURRENT_VERSION"
+                    echo "🔄 Mise à jour nécessaire: false"
+                    echo "📝 Aucun changement significatif détecté"
+                  fi
+
+    update-version:
+        name: Mise à Jour de Version
+        runs-on: ubuntu-latest
+        needs: check-version
+        permissions:
+            contents: write
+            pull-requests: write
+            issues: write
+        outputs:
+            new_version: ${{ steps.version.outputs.new_version }}
+            changelog: ${{ steps.changelog.outputs.changelog }}
+        if: |
+            github.event_name == 'workflow_dispatch' ||
+            (github.event_name == 'push' && needs.check-version.outputs.needs_version_update == 'true')
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  persist-credentials: true
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Configuration Git
+              run: |
+                  git config --local user.email "action@github.com"
+                  git config --local user.name "GitHub Action"
+
+            - name: Mettre à jour la version
+              id: version
+              run: |
+                  # Déterminer le type de version
+                  if [ "${{ github.event.inputs.version_type }}" != "" ]; then
+                    VERSION_TYPE="${{ github.event.inputs.version_type }}"
+                  else
+                    # Analyser les commits pour déterminer le type
+                    if git log --oneline -10 | grep -E "breaking" > /dev/null; then
+                      VERSION_TYPE="major"
+                    elif git log --oneline -10 | grep -E "feat" > /dev/null; then
+                      VERSION_TYPE="minor"
+                    else
+                      VERSION_TYPE="patch"
+                    fi
+                  fi
+
+                  echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+
+                  # Mettre à jour package.json avec Bun
+                  # Bun n'a pas de commande version native, on utilise une approche manuelle
+                  CURRENT_VERSION=$(bun run -c "console.log(require('./package.json').version)")
+
+                  # Calculer la nouvelle version selon le type
+                  IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                  MAJOR=${VERSION_PARTS[0]}
+                  MINOR=${VERSION_PARTS[1]}
+                  PATCH=${VERSION_PARTS[2]}
+
+                  case $VERSION_TYPE in
+                    "major")
+                      NEW_VERSION="$((MAJOR + 1)).0.0"
+                      ;;
+                    "minor")
+                      NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                      ;;
+                    "patch")
+                      NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                      ;;
+                  esac
+
+                  # Mettre à jour package.json
+                  sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" package.json
+
+                  # Mettre à jour app.json
+                  sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" app.json
+
+                  echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+                  echo "🚀 Nouvelle version: $NEW_VERSION ($VERSION_TYPE)"
+
+            - name: Générer le changelog
+              id: changelog
+              run: |
+                  # Générer le changelog depuis le dernier tag
+                  LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+                  if [ -z "$LAST_TAG" ]; then
+                    # Première version
+                    CHANGELOG=$(git log --oneline --pretty=format:"- %s" | head -20)
+                  else
+                    # Depuis le dernier tag
+                    CHANGELOG=$(git log --oneline --pretty=format:"- %s" $LAST_TAG..HEAD)
+                  fi
+
+                  # Filtrer et formater le changelog
+                  FORMATTED_CHANGELOG=$(echo "$CHANGELOG" | sed 's/^/- /' | grep -v "Merge\|chore\|docs\|test\|ci" | head -20)
+
+                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
+                  echo "$FORMATTED_CHANGELOG" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+                  echo "📝 Changelog généré:"
+                  echo "$FORMATTED_CHANGELOG"
+
+            - name: Mettre à jour le CHANGELOG.md
+              run: |
+                  NEW_VERSION="${{ steps.version.outputs.new_version }}"
+                  CHANGELOG="${{ steps.changelog.outputs.changelog }}"
+
+                  # Utiliser la date du dernier commit pour plus de cohérence
+                  COMMIT_DATE=$(git log -1 --format=%cd --date=format:%Y-%m-%d)
+                  echo "📅 Date du dernier commit: $COMMIT_DATE"
+
+                  # Créer la nouvelle section de version 
+                  echo "## [$NEW_VERSION] - $COMMIT_DATE" > temp_changelog.md
+                  echo "" >> temp_changelog.md
+                  echo "$CHANGELOG" >> temp_changelog.md
+                  echo "" >> temp_changelog.md
+
+                  # Insérer après la section [Unreleased]
+                  awk '
+                  /^## \[Unreleased\]/ {
+                      print; 
+                      print "";
+                      # Insérer le nouveau contenu
+                      system("cat temp_changelog.md");
+                      next;
+                  }
+                  { print }
+                  ' CHANGELOG.md > CHANGELOG_new.md
+
+                  mv CHANGELOG_new.md CHANGELOG.md
+                  rm -f temp_changelog.md
+
+                  echo "📄 CHANGELOG.md mis à jour avec la date du commit: $COMMIT_DATE"
+
+            - name: Commit et push des changements
+              run: |
+                  git add package.json app.json CHANGELOG.md
+                  git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+                  git push
+
+            - name: Créer le tag de release
+              run: |
+                  git tag -a "v${{ steps.version.outputs.new_version }}" -m "Release v${{ steps.version.outputs.new_version }}"
+                  git push origin "v${{ steps.version.outputs.new_version }}"
+
+    create-release:
+        name: Créer la Release GitHub
+        runs-on: ubuntu-latest
+        needs: update-version
+        if: github.event_name == 'workflow_dispatch'
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Créer la release
+              uses: softprops/action-gh-release@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: v${{ needs.update-version.outputs.new_version }}
+                  name: Release v${{ needs.update-version.outputs.new_version }}
+                  body: |
+                      ## 🚀 Nouvelle Version ${{ needs.update-version.outputs.new_version }}
+
+                      ### 📝 Changements
+                      ${{ needs.update-version.outputs.changelog }}
+
+                      ### 📦 Installation
+                      ```bash
+                      bun install
+                      ```
+
+                      ### 🔧 Configuration
+                      Vérifiez que votre `app.json` et `package.json` sont à jour.
+
+                      ### 🚀 Démarrage
+                      ```bash
+                      bun run dev
+                      ```
+
+                      ---
+                      *Release générée automatiquement par GitHub Actions*
+                  draft: false
+                  prerelease: false
+
+    notify-team:
+        name: Notification Équipe
+        runs-on: ubuntu-latest
+        needs: [update-version, create-release]
+        if: always()
+
+        steps:
+            - name: Notification (optionnel)
+              run: |
+                  echo "📢 Notification de release"
+                  echo "Version: ${{ needs.update-version.outputs.new_version }}"
+                  echo "Pour activer les notifications Slack:"
+                  echo "1. Configurer SLACK_WEBHOOK_URL comme secret du repository"
+                  echo "2. Décommenter le code curl dans ce workflow"
+
+            - name: Résumé de la release
+              run: |
+                  echo "## 🎉 Release v${{ needs.update-version.outputs.new_version }} créée avec succès!" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📝 Changements" >> $GITHUB_STEP_SUMMARY
+                  echo "${{ needs.update-version.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 🔗 Liens" >> $GITHUB_STEP_SUMMARY
+                  echo "- [Release GitHub](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.update-version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY
+                  echo "- [Changelog complet](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)" >> $GITHUB_STEP_SUMMARY
