@@ -101,8 +101,14 @@ export const testUtils = {
 	},
 
 	async createTestAdmin(data: { email: string; password: string; firstname: string; lastname: string }) {
+		const user = await testPrisma.user.findUnique({
+			where: { email: data.email },
+		})
+		if (user) {
+			return user
+		}
 		const hashedPassword = await bcrypt.hash(data.password, 10)
-		const user = await testPrisma.user.create({
+		return await testPrisma.user.create({
 			data: {
 				email: data.email,
 				password: hashedPassword,
@@ -115,8 +121,6 @@ export const testUtils = {
 				nationality: "FR",
 			},
 		})
-		console.log(user)
-		return user
 	},
 
 	// Créer un événement de test
@@ -146,8 +150,6 @@ export const testUtils = {
 
 	// Créer une conversation de test
 	async createTestConversation(participants: string[]) {
-		console.log("Creating conversation with participants:", participants)
-
 		// Vérifier que tous les participants existent
 		for (const participantId of participants) {
 			const user = await testPrisma.user.findUnique({
@@ -156,7 +158,6 @@ export const testUtils = {
 			if (!user) {
 				throw new Error(`User with id ${participantId} not found`)
 			}
-			console.log(`User ${participantId} exists:`, user.email)
 		}
 
 		try {
@@ -178,10 +179,6 @@ export const testUtils = {
 				},
 			})
 
-			console.log(
-				"Conversation created successfully with participants:",
-				conversation.participants.map((p) => p.email)
-			)
 			return conversation
 		} catch (error) {
 			console.error("Error in createTestConversation:", error)
@@ -219,7 +216,6 @@ export const testUtils = {
 				type: data.type,
 			},
 		})
-		console.log("Reaction created:", reaction)
 		return reaction
 	},
 }

@@ -1,30 +1,27 @@
 # Système de Supervision et d'Alerte - Fil Rouge Server
 
-## Compétence RNCP C4.1.2
-> Concevoir un système de supervision et d'alerte en déterminant le périmètre de supervision et en identifiant les indicateurs de suivi pertinents, en mettant en place des sondes, en configurant la modalité des signalements afin de garantir une disponibilité permanente du logiciel.
-
 ## 🎯 Périmètre de Supervision
 
 ### Architecture de l'Application
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Fil Rouge Server                        │
+│                    Fil Rouge Server                         │
 ├─────────────────────────────────────────────────────────────┤
-│  API REST (Hono + TypeScript)                              │
-│  ├─ Routes: /api/auth, /users, /events, /messages         │
-│  ├─ Middleware: Auth, CORS, Logger                        │
-│  ├─ Documentation: Swagger UI                             │
-│  └─ Port: 3001                                            │
+│  API REST (Hono + TypeScript)                               │
+│  ├─ Routes: /api/auth, /users, /events, /messages           │
+│  ├─ Middleware: Auth, CORS, Logger, Monitoring, Logging     │
+│  ├─ Documentation: Swagger UI                               │
+│  └─ Port: 3001                                              │
 ├─────────────────────────────────────────────────────────────┤
-│  Base de Données                                           │
-│  ├─ PostgreSQL 14                                         │
-│  ├─ Port: 5432                                            │
-│  └─ Schéma: Prisma ORM                                    │
+│  Base de Données                                            │
+│  ├─ PostgreSQL 14                                           │
+│  ├─ Port: 5432                                              │
+│  └─ Schéma: Prisma ORM                                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Stockage d'Objets                                         │
-│  ├─ MinIO                                                 │
-│  ├─ Ports: 9000 (API), 9090 (Console)                    │
-│  └─ Bucket: images                                        │
+│  Stockage d'Objets                                          │
+│  ├─ MinIO                                                   │
+│  ├─ Ports: 9000 (API), 9090 (Console)                       │
+│  └─ Bucket: images                                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -198,7 +195,6 @@ Response: {
 
 #### Webhooks
 - **Slack/Teams** : Notifications temps réel
-- **PagerDuty** : Escalade automatique
 - **Monitoring Dashboard** : Mise à jour en continu
 
 #### SMS
@@ -236,67 +232,6 @@ Trend: En hausse
 Action: Vérifier les requêtes lentes
 Dashboard: https://monitoring.filrouge.com/db
 ```
-
-## 🛡️ Garantie de Disponibilité
-
-### 1. **Architecture de Redondance**
-
-#### Load Balancer
-- **Nginx** : Distribution de charge
-- **Health Checks** : Exclusion automatique des nœuds défaillants
-- **Failover** : Basculement automatique < 30s
-
-#### Base de Données
-- **Réplication Master-Slave** : Lecture haute disponibilité
-- **Backup automatique** : Toutes les 4h
-- **Point-in-time Recovery** : Granularité 1 minute
-
-#### Stockage
-- **MinIO Clustering** : Réplication multi-nœuds
-- **Backup S3** : Synchronisation quotidienne
-- **Vérification d'intégrité** : Checksum automatique
-
-### 2. **Procédures de Récupération**
-
-#### RTO (Recovery Time Objective)
-- **API Application** : < 5 minutes
-- **Base de Données** : < 15 minutes
-- **Stockage de fichiers** : < 30 minutes
-
-#### RPO (Recovery Point Objective)
-- **Données transactionnelles** : < 1 minute
-- **Fichiers utilisateur** : < 1 heure
-- **Configuration système** : < 24 heures
-
-### 3. **Tests de Résilience**
-
-#### Chaos Engineering
-- **Arrêt aléatoire de services** : Hebdomadaire
-- **Simulation de charge** : Mensuelle
-- **Test de récupération** : Trimestrielle
-
-#### Validation Continue
-- **Health checks** : Toutes les 30 secondes
-- **End-to-end tests** : Toutes les 5 minutes
-- **Performance monitoring** : Continu
-
-## 📈 Dashboard et Reporting
-
-### 1. **Dashboard Temps Réel**
-- **Vue d'ensemble** : Status général de tous les services
-- **Métriques clés** : Graphiques temps réel
-- **Alertes actives** : Liste prioritaire
-- **Historique** : Tendances sur 24h/7j/30j
-
-### 2. **Rapports Automatiques**
-- **Quotidien** : Résumé des métriques et incidents
-- **Hebdomadaire** : Analyse de tendances et recommandations
-- **Mensuel** : SLA et objectifs de performance
-
-### 3. **Analyse Prédictive**
-- **Prédiction de charge** : ML sur historique
-- **Détection d'anomalies** : Alertes préventives
-- **Capacity Planning** : Recommandations d'infrastructure
 
 ---
 

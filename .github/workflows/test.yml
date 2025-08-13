@@ -1,0 +1,124 @@
+name: Tests
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main, develop]
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres:14-alpine
+                env:
+                    POSTGRES_USER: kifekoi
+                    POSTGRES_PASSWORD: kifekoipass
+                    POSTGRES_DB: kifekoi_db
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 5432:5432
+
+            minio:
+                image: minio/minio
+                env:
+                    MINIO_ROOT_USER: minioadmin
+                    MINIO_ROOT_PASSWORD: minioadmin
+                options: >-
+                    --health-cmd "curl -f http://localhost:9000/minio/health/live"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 9000:9000
+                    - 9090:9090
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.bun/install/cache
+                      node_modules
+                  key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-bun-
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Setup Prisma
+              run: bunx prisma generate
+
+            - name: Run database migrations
+              run: bunx prisma db push
+              env:
+                  DATABASE_URL: postgresql://kifekoi:kifekoipass@localhost:5432/kifekoi_db
+
+            - name: Seed database
+              run: bun run prisma:seed
+              env:
+                  DATABASE_URL: postgresql://kifekoi:kifekoipass@localhost:5432/kifekoi_db
+
+            - name: Wait for MinIO to be ready
+              run: |
+                  timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live; do sleep 2; done'
+
+            - name: Setup MinIO buckets
+              run: |
+                  # Install MinIO client
+                  wget https://dl.min.io/client/mc/release/linux-amd64/mc
+                  chmod +x mc
+
+                  # Configure MinIO client
+                  ./mc alias set local http://localhost:9000 minioadmin minioadmin
+
+                  # Create bucket for images
+                  ./mc mb local/images --ignore-existing
+
+                  # Set bucket to public read
+                  ./mc anonymous set download local/images
+
+            - name: Run tests
+              run: bun run test:run
+              env:
+                  DATABASE_URL: postgresql://kifekoi:kifekoipass@localhost:5432/kifekoi_db
+                  MINIO_ENDPOINT: localhost
+                  MINIO_PORT: 9000
+                  MINIO_ACCESS_KEY: minioadmin
+                  MINIO_SECRET_KEY: minioadmin
+                  MINIO_USE_SSL: false
+                  JWT_SECRET: test-secret-key-for-ci
+
+            - name: Run tests with coverage
+              run: bun run test:coverage
+              env:
+                  DATABASE_URL: postgresql://kifekoi:kifekoipass@localhost:5432/kifekoi_db
+                  MINIO_ENDPOINT: localhost
+                  MINIO_PORT: 9000
+                  MINIO_ACCESS_KEY: minioadmin
+                  MINIO_SECRET_KEY: minioadmin
+                  MINIO_USE_SSL: false
+                  JWT_SECRET: test-secret-key-for-ci
+
+            - name: Upload coverage reports
+              uses: codecov/codecov-action@v3
+              with:
+                  file: ./coverage/coverage-final.json
+                  flags: unittests
+                  name: codecov-umbrella
+                  fail_ci_if_error: false

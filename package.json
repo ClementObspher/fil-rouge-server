@@ -16,8 +16,7 @@
     "test:debug": "vitest --run --reporter=verbose",
     "test:auth": "vitest --run auth.test.ts",
     "test:users": "vitest --run user.test.ts",
-    "test:events": "vitest --run event.test.ts",
-    "test:integration": "vitest --run index.test.ts"
+    "test:events": "vitest --run event.test.ts"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.5.2",

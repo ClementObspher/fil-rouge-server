@@ -1,8 +1,5 @@
 # Politique de Gestion des Dépendances
 
-## Compétence RNCP C4.1.1
-> Gérer les mises à jour des dépendances et des bibliothèques tiers, en surveillant régulièrement les nouvelles versions, en évaluant les impacts des mises à jour, et en les intégrant de manière sécurisée pour maintenir l'application à jour et sécurisée.
-
 ## 📋 Objectifs
 
 Cette politique définit les procédures et responsabilités pour la gestion sécurisée des dépendances du projet fil-rouge-server, garantissant :
@@ -119,55 +116,6 @@ bun run deps:update:patch
 - Log de mise à jour : `update-log-YYYYMMDD-HHMMSS.md`
 - Analyse d'impact : Template dans `docs/`
 
-## 👥 Responsabilités
-
-### Lead Developer
-- Supervision générale du processus
-- Validation des mises à jour majeures
-- Révision des rapports d'audit
-- Formation de l'équipe
-
-### DevOps Engineer
-- Configuration des outils d'automatisation
-- Maintenance des workflows CI/CD
-- Surveillance des métriques
-- Gestion des alertes
-
-### Développeurs
-- Révision des mises à jour mineures
-- Tests de régression
-- Documentation des changements
-- Signalement des problèmes
-
-## 🚨 Procédures d'Urgence
-
-### Rollback Automatique
-- Déclenchement : Échec des tests post-mise à jour
-- Action : Restauration automatique du backup
-- Notification : Alerte immédiate à l'équipe
-- Investigation : Analyse des causes
-
-### Mise à Jour d'Urgence
-- Critères : Vulnérabilités critiques
-- Procédure : Bypass des tests automatisés
-- Validation : Tests manuels intensifs
-- Communication : Notification à tous les stakeholders
-
-## 📚 Formation et Maintenance
-
-### Formation Obligatoire
-- **Nouveaux développeurs** : Session d'intégration
-- **Équipe existante** : Mise à jour trimestrielle
-- **Contenu** :
-  - Utilisation des outils
-  - Interprétation des rapports
-  - Procédures d'urgence
-
-### Maintenance des Outils
-- **Mise à jour des scripts** : Mensuelle
-- **Révision des workflows** : Trimestrielle
-- **Évaluation des nouveaux outils** : Annuelle
-
 ## 📈 Amélioration Continue
 
 ### Revue Mensuelle
@@ -185,7 +133,3 @@ bun run deps:update:patch
 ---
 
 *Cette politique est un document vivant qui doit être révisé et mis à jour régulièrement pour refléter l'évolution des bonnes pratiques et des besoins du projet.*
-
-**Dernière mise à jour** : $(date +%Y-%m-%d)  
-**Prochaine révision** : $(date -d "+3 months" +%Y-%m-%d)  
-**Responsable** : Lead Developer 
