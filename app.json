@@ -1,6 +1,6 @@
 {
   "name": "fil-rouge-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Serveur backend pour l'application fil rouge",
   "main": "src/index.ts",
   "type": "module",
