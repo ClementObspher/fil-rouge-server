@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  password                String
+  firstname               String
+  lastname                String
+  bio                     String?
+  birthdate               DateTime?
+  nationality             String?
+  role                    Role                     @default(USER)
+  avatar                  String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  events_owner            Event[]
+  events                  Event[]                  @relation("EventParticipants")
+  messages                Message[]
+  messageReactions        MessageReaction[]
+  privateMessageReactions PrivateMessageReaction[]
+  User_A                  User[]                   @relation("UserFriends")
+  User_B                  User[]                   @relation("UserFriends")
+  sentFriendRequests      FriendRequest[]          @relation("FriendRequestSender")
+  receivedFriendRequests  FriendRequest[]          @relation("FriendRequestReceiver")
+  conversations           Conversation[]           @relation("ConversationParticipants")
+  sentPrivateMessages     PrivateMessage[]         @relation("SentPrivateMessages")
+}
+
+model Event {
+  id           String       @id @default(uuid())
+  slug         String       @unique
+  isPublic     Boolean      @default(false)
+  isFeatured   Boolean      @default(false)
+  isArchived   Boolean      @default(false)
+  isCancelled  Boolean      @default(false)
+  isDraft      Boolean      @default(false)
+  isPublished  Boolean      @default(false)
+  isUnlisted   Boolean      @default(false)
+  isPrivate    Boolean      @default(false)
+  coverImage   String?
+  title        String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime
+  status       EventStatus  @default(PENDING)
+  type         EventType    @default(OTHER)
+  ownerId      String
+  addressId    String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  owner        User         @relation(fields: [ownerId], references: [id])
+  address      Address?     @relation(fields: [addressId], references: [id])
+  images       EventImage[]
+  messages     Message[]
+  participants User[]       @relation("EventParticipants")
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  number      String?
+  street      String
+  city        String
+  postal_code String
+  country     String
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      Event[]
+}
+
+model EventImage {
+  id        String   @id @default(uuid())
+  eventId   String
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id])
+}
+
+model Message {
+  id        String            @id @default(uuid())
+  eventId   String
+  userId    String
+  content   String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  event     Event             @relation(fields: [eventId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+  reactions MessageReaction[]
+}
+
+enum MessageReactionType {
+  LIKE
+  DISLIKE
+  LOVE
+}
+
+model MessageReaction {
+  id        String              @id @default(uuid())
+  messageId String
+  userId    String
+  type      MessageReactionType
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  message   Message             @relation(fields: [messageId], references: [id])
+  sender    User                @relation(fields: [userId], references: [id])
+}
+
+model Conversation {
+  id              String           @id @default(uuid())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  participants    User[]           @relation("ConversationParticipants")
+  privateMessages PrivateMessage[]
+
+  @@unique([id])
+}
+
+model PrivateMessage {
+  id             String                   @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean                  @default(false)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  conversation   Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User                     @relation("SentPrivateMessages", fields: [senderId], references: [id])
+  reactions      PrivateMessageReaction[]
+}
+
+model PrivateMessageReaction {
+  id        String              @id @default(uuid())
+  messageId String
+  userId    String
+  type      MessageReactionType
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  message   PrivateMessage      @relation(fields: [messageId], references: [id])
+  sender    User                @relation(fields: [userId], references: [id])
+}
+
+model FriendRequest {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  sender     User                @relation("FriendRequestSender", fields: [senderId], references: [id])
+  receiver   User                @relation("FriendRequestReceiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum EventStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum EventType {
+  MUSIC
+  DANCE
+  THEATRE
+  VISUAL_ART
+  LITERATURE
+  CINEMA
+  SPORTS
+  OTHER
+}

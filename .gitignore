@@ -7,11 +7,6 @@ logs
 *.log
 npm-debug.log*
 
-# prisma
-prisma/migrations
-prisma/generated
-prisma/schema.prisma
-
 # coverage
 coverage/
 
