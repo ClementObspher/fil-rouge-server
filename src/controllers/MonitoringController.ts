@@ -16,9 +16,6 @@ export default class MonitoringController {
 		this.prometheusMetricsService = prometheusMetricsService || new PrometheusMetricsService()
 	}
 
-	/**
-	 * Affiche le dashboard de monitoring
-	 */
 	async getDashboard(c: Context) {
 		try {
 			const dashboardPath = join(process.cwd(), "src", "public", "monitoring-dashboard.html")
@@ -36,14 +33,10 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Health Check Principal - Endpoint simple pour vérifications automatisées
-	 */
 	async getHealth(c: Context) {
 		try {
 			const healthStatus = await this.monitoringService.getHealthStatus()
 
-			// Status HTTP basé sur la santé globale
 			const statusCode = healthStatus.status === "unhealthy" ? 503 : healthStatus.status === "degraded" ? 200 : 200
 
 			return c.json(healthStatus, statusCode)
@@ -61,14 +54,10 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Health Check Détaillé - Informations complètes pour debugging
-	 */
 	async getDetailedHealth(c: Context) {
 		try {
 			const healthStatus = await this.monitoringService.getHealthStatus()
 
-			// Ajoute des métriques système détaillées
 			const detailedStatus = {
 				...healthStatus,
 				system: {
@@ -103,18 +92,12 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Métriques au format Prometheus
-	 */
 	async getMetrics(c: Context) {
 		try {
-			// Récupération du statut de santé pour mettre à jour les métriques
 			const healthStatus = await this.monitoringService.getHealthStatus()
 
-			// Mise à jour des métriques avec les données actuelles
 			this.prometheusMetricsService.updateMetrics(healthStatus)
 
-			// Génération automatique du format Prometheus
 			const prometheusMetrics = await this.prometheusMetricsService.getMetrics()
 
 			return c.text(prometheusMetrics, 200, {
@@ -126,9 +109,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Alertes actives
-	 */
 	async getAlerts(c: Context) {
 		try {
 			const alerts = await this.monitoringService.checkThresholds()
@@ -153,14 +133,10 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Readiness Check - Vérifie si l'application est prête à recevoir du trafic
-	 */
 	async getReady(c: Context) {
 		try {
 			const healthStatus = await this.monitoringService.getHealthStatus()
 
-			// L'application est prête si tous les services critiques sont disponibles
 			const isReady = healthStatus.services.database.status !== "unhealthy" && healthStatus.services.application.status !== "unhealthy"
 
 			if (isReady) {
@@ -192,15 +168,10 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Liveness Check - Vérifie si l'application est vivante
-	 */
 	async getLive(c: Context) {
 		try {
-			// Check simple pour vérifier que l'application répond
 			const startTime = Date.now()
 
-			// Test de base - l'application répond
 			const responseTime = Date.now() - startTime
 
 			return c.json({
@@ -222,9 +193,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Version et informations de l'application
-	 */
 	async getInfo(c: Context) {
 		return c.json({
 			name: "fil-rouge-server",
@@ -244,9 +212,6 @@ export default class MonitoringController {
 		})
 	}
 
-	/**
-	 * Logs récents par niveau
-	 */
 	async getLogsByLevel(c: Context) {
 		try {
 			const level = c.req.param("level") as "info" | "warn" | "error" | "debug"
@@ -281,9 +246,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Recherche de logs par Request ID
-	 */
 	async getLogsByRequestId(c: Context) {
 		try {
 			const requestId = c.req.param("requestId")
@@ -305,9 +267,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Résumé des logs des dernières heures
-	 */
 	async getLogsSummary(c: Context) {
 		try {
 			const hours = parseInt(c.req.query("hours") || "24")
@@ -328,9 +287,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Tous les logs (debug endpoint)
-	 */
 	async getAllLogs(c: Context) {
 		try {
 			const lines = parseInt(c.req.query("lines") || "50")
@@ -367,9 +323,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Simulation d'anomalies pour tests (développement uniquement)
-	 */
 	async simulateCondition(c: Context) {
 		try {
 			const condition = c.req.param("condition") as "high_memory" | "slow_response" | "high_errors" | "disk_full" | "db_overload"
@@ -413,9 +366,6 @@ export default class MonitoringController {
 		}
 	}
 
-	/**
-	 * Helper function pour convertir le status en valeur numérique
-	 */
 	static getStatusValue(status: string): number {
 		switch (status) {
 			case "healthy":

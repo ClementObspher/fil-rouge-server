@@ -81,13 +81,9 @@ export class MonitoringService {
 		this.prisma = prisma
 		this.startTime = Date.now()
 
-		// Nettoyer les métriques toutes les heures
-		setInterval(() => this.cleanupMetrics(), 3600000) // 1 heure
+		setInterval(() => this.cleanupMetrics(), 3600000)
 	}
 
-	/**
-	 * Vérifie la santé globale du système
-	 */
 	async getHealthStatus(): Promise<HealthStatus> {
 		const timestamp = new Date().toISOString()
 
@@ -95,7 +91,6 @@ export class MonitoringService {
 
 		const systemMetrics = await this.getSystemMetrics()
 
-		// Détermine le statut global
 		const overallStatus = this.determineOverallStatus([dbHealth, storageHealth, appHealth])
 
 		return {
@@ -111,19 +106,14 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Vérifie la santé de la base de données
-	 */
 	async checkDatabaseHealth(): Promise<ServiceHealth> {
 		const startTime = Date.now()
 
 		try {
-			// Test de connectivité simple
 			await this.prisma.$queryRaw`SELECT 1`
 
 			const responseTime = Date.now() - startTime
 
-			// Vérifie les connexions actives
 			const connections = await this.getDatabaseConnections()
 
 			const status = this.evaluateHealthStatus({
@@ -152,18 +142,13 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Vérifie la santé du stockage MinIO
-	 */
 	async checkStorageHealth(): Promise<ServiceHealth> {
 		const startTime = Date.now()
 
 		try {
-			// Test de connectivité à MinIO
 			const buckets = await minioClient.listBuckets()
 			const responseTime = Date.now() - startTime
 
-			// Vérifie l'espace disque disponible
 			const bucketExists = await minioClient.bucketExists("images")
 
 			const status = this.evaluateHealthStatus({
@@ -192,14 +177,10 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Vérifie la santé de l'application
-	 */
 	async checkApplicationHealth(): Promise<ServiceHealth> {
 		const uptime = Date.now() - this.startTime
 		const memoryUsage = this.getMemoryUsage()
 
-		// Évalue la santé basée sur l'utilisation mémoire
 		const memoryStatus = this.evaluateHealthStatus({
 			responseTime: memoryUsage.percentage,
 			thresholds: { warning: 75, critical: 85 },
@@ -208,7 +189,7 @@ export class MonitoringService {
 		return {
 			status: memoryStatus,
 			lastCheck: new Date().toISOString(),
-			uptime: Math.floor(uptime / 1000), // en secondes
+			uptime: Math.floor(uptime / 1000),
 			details: {
 				memoryUsage: `${memoryUsage.percentage.toFixed(1)}%`,
 				memoryUsed: `${Math.round(memoryUsage.used / 1024 / 1024)}MB`,
@@ -219,9 +200,6 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Collecte les métriques système
-	 */
 	async getSystemMetrics(): Promise<SystemMetrics> {
 		const uptime = Math.floor((Date.now() - this.startTime) / 1000)
 		const memoryUsage = this.getMemoryUsage()
@@ -244,9 +222,6 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Calcule l'usage du CPU
-	 */
 	private async getCpuUsage(): Promise<CpuUsage> {
 		const startUsage = process.cpuUsage()
 		const startTime = process.hrtime()
@@ -268,19 +243,14 @@ export class MonitoringService {
 		}
 	}
 
-	/**
-	 * Calcule l'espace disque utilisé
-	 */
 	private async getDiskSpace(): Promise<{ used: number; total: number; percentage: number }> {
 		try {
-			// Utilise la base de données courante plutôt que DATABASE_NAME
 			const result = await this.prisma.$queryRaw<Array<{ size: bigint }>>`
 				SELECT pg_database_size(current_database()) as size
 			`
 
 			const databaseSize = Number(result[0]?.size || 0)
 
-			// Pour l'espace total disque, utilise une approximation basée sur pg_size_pretty et l'espace tablespace
 			const tablespaceResult = await this.prisma.$queryRaw<Array<{ total_size: bigint }>>`
 				SELECT COALESCE(
 					(SELECT sum(pg_tablespace_size(oid)) FROM pg_tablespace),
@@ -298,14 +268,10 @@ export class MonitoringService {
 			}
 		} catch (error) {
 			console.error("Erreur lors du calcul de l'espace disque:", error)
-			// Retourne des valeurs par défaut en cas d'erreur
 			return { used: 0, total: 0, percentage: 0 }
 		}
 	}
 
-	/**
-	 * Enregistre une requête pour les métriques
-	 */
 	recordRequest(path: string, responseTime: number, isError: boolean = false): void {
 		this.totalRequests++
 		this.responseTimes.push(responseTime)
@@ -314,26 +280,20 @@ export class MonitoringService {
 			this.errorCount++
 		}
 
-		// Garde seulement les 1000 derniers temps de réponse
 		if (this.responseTimes.length > 1000) {
 			this.responseTimes = this.responseTimes.slice(-1000)
 		}
 
-		// Enregistre par endpoint
 		if (!this.requestMetrics.has(path)) {
 			this.requestMetrics.set(path, [])
 		}
 		this.requestMetrics.get(path)?.push(responseTime)
 	}
 
-	/**
-	 * Vérifie les seuils et génère des alertes
-	 */
 	async checkThresholds(): Promise<AlertConfig[]> {
 		const alerts: AlertConfig[] = []
 		const healthStatus = await this.getHealthStatus()
 
-		// Vérifications de disponibilité
 		Object.entries(healthStatus.services).forEach(([serviceName, service]) => {
 			if (service.status === "unhealthy") {
 				alerts.push({
@@ -358,10 +318,8 @@ export class MonitoringService {
 			}
 		})
 
-		// Vérifications de performance
 		const metrics = healthStatus.metrics
 
-		// Mémoire (seuils ajustés)
 		if (metrics.memoryUsage.percentage > 85) {
 			alerts.push({
 				type: "critical",
@@ -384,7 +342,6 @@ export class MonitoringService {
 			})
 		}
 
-		// Temps de réponse
 		if (metrics.responseTime > 2000) {
 			alerts.push({
 				type: "critical",
@@ -407,7 +364,6 @@ export class MonitoringService {
 			})
 		}
 
-		// Taux d'erreur (seulement si assez de requêtes pour être significatif)
 		if (metrics.requests.total >= 10) {
 			const errorRate = (metrics.requests.errors / metrics.requests.total) * 100
 			if (errorRate > 10) {
@@ -433,7 +389,6 @@ export class MonitoringService {
 			}
 		}
 
-		// Connexions base de données
 		if (metrics.connections.database > 50) {
 			alerts.push({
 				type: "critical",
@@ -456,7 +411,6 @@ export class MonitoringService {
 			})
 		}
 
-		// Requêtes par seconde (RPS) - détection de charge excessive
 		if (metrics.requests.rps > 100) {
 			alerts.push({
 				type: "warning",
@@ -469,7 +423,6 @@ export class MonitoringService {
 			})
 		}
 
-		// Détection de pattern d'erreurs répétées
 		if (metrics.requests.total >= 20 && metrics.requests.errors >= 5) {
 			const recentErrorRate = (metrics.requests.errors / metrics.requests.total) * 100
 			if (recentErrorRate > 15) {
@@ -485,7 +438,6 @@ export class MonitoringService {
 			}
 		}
 
-		// Vérification espace disque
 		if (metrics.diskSpace.percentage > 90) {
 			alerts.push({
 				type: "critical",
@@ -508,7 +460,6 @@ export class MonitoringService {
 			})
 		}
 
-		// Détection de lenteur progressive (si le temps de réponse augmente régulièrement)
 		if (this.responseTimes.length >= 5) {
 			const recent = this.responseTimes.slice(-5)
 			const average = recent.reduce((a, b) => a + b, 0) / recent.length
@@ -527,7 +478,6 @@ export class MonitoringService {
 			}
 		}
 
-		// Vérification de l'usage du CPU
 		if (metrics.cpuUsage.percentage > 85) {
 			alerts.push({
 				type: "warning",
@@ -553,9 +503,6 @@ export class MonitoringService {
 		return alerts
 	}
 
-	/**
-	 * Méthode de test pour simuler différentes conditions et déclencher des anomalies
-	 */
 	async simulateCondition(condition: "high_memory" | "slow_response" | "high_errors" | "disk_full" | "db_overload"): Promise<AlertConfig[]> {
 		console.log(`🧪 Simulation de condition: ${condition}`)
 
@@ -635,8 +582,6 @@ export class MonitoringService {
 		return alerts
 	}
 
-	// Méthodes privées utilitaires
-
 	private evaluateHealthStatus(params: { responseTime: number; thresholds: { warning: number; critical: number } }): "healthy" | "degraded" | "unhealthy" {
 		if (params.responseTime > params.thresholds.critical) {
 			return "unhealthy"
@@ -657,13 +602,11 @@ export class MonitoringService {
 
 	private getMemoryUsage(): MemoryUsage {
 		const usage = process.memoryUsage()
-		// Utilise RSS (Resident Set Size) qui est plus représentatif
 		const used = usage.rss
-		// Estime la mémoire système disponible (en production, on devrait avoir cette info)
-		const systemMemory = 8 * 1024 * 1024 * 1024 // 8GB par défaut, configurable
+		const systemMemory = 8 * 1024 * 1024 * 1024
 		const total = process.env.SYSTEM_MEMORY_BYTES ? parseInt(process.env.SYSTEM_MEMORY_BYTES) : systemMemory
 		const free = total - used
-		const percentage = Math.min((used / total) * 100, 100) // Cap à 100%
+		const percentage = Math.min((used / total) * 100, 100)
 
 		return {
 			used,
@@ -675,7 +618,6 @@ export class MonitoringService {
 
 	private async getDatabaseConnections(): Promise<{ active: number; max: number }> {
 		try {
-			// Requête pour obtenir les connexions actives PostgreSQL
 			const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) as count FROM pg_stat_activity WHERE state = 'active'
       `
@@ -706,20 +648,16 @@ export class MonitoringService {
 	}
 
 	private calculateRPS(): number {
-		// Calcul basé sur les requêtes des 60 dernières secondes
 		const now = Date.now()
 		const oneMinuteAgo = now - 60000
 
-		// Simple approximation - dans un vrai système, on garderait un historique temporel
 		const uptime = (now - this.startTime) / 1000
 		return uptime > 0 ? Math.round(this.totalRequests / uptime) : 0
 	}
 
 	private cleanupMetrics(): void {
-		// Nettoie les métriques anciennes pour éviter la consommation mémoire
 		this.responseTimes = this.responseTimes.slice(-1000)
 
-		// Nettoie les métriques par endpoint
 		this.requestMetrics.forEach((times, path) => {
 			this.requestMetrics.set(path, times.slice(-100))
 		})

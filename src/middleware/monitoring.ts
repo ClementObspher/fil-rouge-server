@@ -4,7 +4,6 @@ import LoggerService from "../services/LoggerService"
 import PrometheusMetricsService from "../services/PrometheusMetricsService"
 import AnomalyService from "../services/AnomalyService"
 
-// Store pour la détection de brute force
 interface BruteForceAttempt {
 	ip: string
 	path: string
@@ -15,10 +14,8 @@ interface BruteForceAttempt {
 	blockedUntil?: number
 }
 
-// Cache en mémoire pour les tentatives de brute force
 const bruteForceStore = new Map<string, BruteForceAttempt>()
 
-// Configuration de la détection de brute force
 const BRUTE_FORCE_CONFIG = {
 	maxAttempts: 5, // Max tentatives en 15 minutes
 	timeWindow: 15 * 60 * 1000, // 15 minutes en millisecondes
@@ -26,26 +23,19 @@ const BRUTE_FORCE_CONFIG = {
 	cleanupInterval: 60 * 60 * 1000, // Nettoyage toutes les heures
 }
 
-// Nettoyage périodique du cache
 setInterval(() => {
 	const now = Date.now()
 	const keysToDelete: string[] = []
 
 	bruteForceStore.forEach((attempt, key) => {
-		// Marquer les entrées expirées pour suppression
 		if ((!attempt.blocked && now - attempt.lastAttempt > BRUTE_FORCE_CONFIG.timeWindow) || (attempt.blocked && attempt.blockedUntil && now > attempt.blockedUntil)) {
 			keysToDelete.push(key)
 		}
 	})
 
-	// Supprimer les entrées expirées
 	keysToDelete.forEach((key) => bruteForceStore.delete(key))
 }, BRUTE_FORCE_CONFIG.cleanupInterval)
 
-/**
- * Middleware de monitoring pour capturer les métriques de requêtes
- * Enregistre automatiquement le temps de réponse, les erreurs et autres métriques
- */
 export const monitoringMiddleware = async (c: Context, next: Next) => {
 	const startTime = Date.now()
 	const path = c.req.path
@@ -53,27 +43,21 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 	const userAgent = c.req.header("user-agent") || "unknown"
 	const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 
-	// Headers de correlation pour traçabilité
 	const requestId = c.req.header("x-request-id") || generateRequestId()
 
-	// Ajoute l'ID de requête dans les headers de réponse
 	c.header("x-request-id", requestId)
 
 	try {
-		// Exécute la requête
 		await next()
 
 		const responseTime = Date.now() - startTime
 		const statusCode = c.res.status || 200
 		const isError = statusCode >= 400
 
-		// Enregistre les métriques
 		MonitoringService.recordRequest(path, responseTime, isError)
 
-		// Enregistre aussi dans Prometheus
 		PrometheusMetricsService.recordHttpRequest(method, path, statusCode, responseTime)
 
-		// Log structuré pour analyse
 		const logData = {
 			timestamp: new Date().toISOString(),
 			requestId,
@@ -86,7 +70,6 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 			isError,
 		}
 
-		// Log avec le service de logging structuré
 		LoggerService.logRequest({
 			method,
 			path,
@@ -98,20 +81,16 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 			isError,
 		})
 
-		// Métriques de sécurité
 		if (isAuthenticationError(statusCode, path)) {
 			logAuthFailure(ip, userAgent, path, requestId)
 		}
 	} catch (error) {
 		const responseTime = Date.now() - startTime
 
-		// Enregistre l'erreur
 		MonitoringService.recordRequest(path, responseTime, true)
 
-		// Enregistre aussi dans Prometheus
 		PrometheusMetricsService.recordHttpRequest(method, path, 500, responseTime)
 
-		// Log de l'erreur avec le service
 		LoggerService.error(
 			"Request Exception",
 			{
@@ -126,14 +105,10 @@ export const monitoringMiddleware = async (c: Context, next: Next) => {
 			requestId
 		)
 
-		// Re-lance l'erreur pour que Hono puisse la gérer
 		throw error
 	}
 }
 
-/**
- * Middleware spécialisé pour les endpoints sensibles (authentification)
- */
 export const securityMonitoringMiddleware = async (c: Context, next: Next) => {
 	const startTime = Date.now()
 	const path = c.req.path
@@ -141,7 +116,6 @@ export const securityMonitoringMiddleware = async (c: Context, next: Next) => {
 	const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 	const userAgent = c.req.header("user-agent") || "unknown"
 
-	// Vérifications de sécurité pré-requête
 	if (isSupiciousRequest(c)) {
 		console.warn("Suspicious Request Detected:", {
 			timestamp: new Date().toISOString(),
@@ -160,7 +134,6 @@ export const securityMonitoringMiddleware = async (c: Context, next: Next) => {
 		const responseTime = Date.now() - startTime
 		const statusCode = c.res.status || 200
 
-		// Log spécifique pour la sécurité
 		console.log("Security Event:", {
 			timestamp: new Date().toISOString(),
 			type: "auth_attempt",
@@ -190,15 +163,11 @@ export const securityMonitoringMiddleware = async (c: Context, next: Next) => {
 	}
 }
 
-/**
- * Middleware pour tracker les métriques business
- */
 export const businessMetricsMiddleware = async (c: Context, next: Next) => {
 	const startTime = Date.now()
 	const path = c.req.path
 	const method = c.req.method
 
-	// Identifie les actions business importantes
 	const businessAction = identifyBusinessAction(path, method)
 
 	if (businessAction) {
@@ -248,8 +217,6 @@ export const businessMetricsMiddleware = async (c: Context, next: Next) => {
 	}
 }
 
-// Fonctions utilitaires
-
 function generateRequestId(): string {
 	return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
@@ -269,7 +236,6 @@ export function logAuthFailure(ip: string, userAgent: string, path: string, requ
 		severity: "medium",
 	})
 
-	// Détection de brute force
 	checkBruteForcePattern(ip, path, requestId)
 }
 
@@ -277,7 +243,6 @@ function isSupiciousRequest(c: Context): boolean {
 	const userAgent = c.req.header("user-agent") || ""
 	const path = c.req.path
 
-	// Détection simple de patterns suspects
 	const suspiciousPatterns = [
 		/sql|script|javascript|vbscript/i, // Injection attempts
 		/\.\./, // Directory traversal
@@ -307,7 +272,6 @@ function identifyBusinessAction(path: string, method: string): string | null {
 
 function extractUserId(c: Context): string | null {
 	try {
-		// Extrait l'ID utilisateur du contexte (ajouté par le middleware d'auth)
 		const user = c.get("user")
 		return user?.id || null
 	} catch {
@@ -315,9 +279,6 @@ function extractUserId(c: Context): string | null {
 	}
 }
 
-/**
- * Middleware de rate limiting avec monitoring
- */
 export const rateLimitingMiddleware = (maxRequests: number = 100, windowMs: number = 60000) => {
 	const requests = new Map<string, { count: number; resetTime: number }>()
 
@@ -327,7 +288,6 @@ export const rateLimitingMiddleware = (maxRequests: number = 100, windowMs: numb
 		const now = Date.now()
 		const windowStart = now - windowMs
 
-		// Nettoie les anciennes entrées
 		const keysToDelete: string[] = []
 		requests.forEach((value, key) => {
 			if (value.resetTime < windowStart) {
@@ -363,18 +323,13 @@ export const rateLimitingMiddleware = (maxRequests: number = 100, windowMs: numb
 	}
 }
 
-/**
- * Fonction de détection et blocage des attaques brute force
- */
 function checkBruteForcePattern(ip: string, path: string, requestId: string): void {
 	const now = Date.now()
 	const key = `${ip}:${path}`
 
-	// Récupérer ou créer l'entrée pour cette IP/path
 	let attempt = bruteForceStore.get(key)
 
 	if (!attempt) {
-		// Première tentative pour cette IP/path
 		attempt = {
 			ip,
 			path,
@@ -387,7 +342,6 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		return
 	}
 
-	// Vérifier si le blocage est encore actif
 	if (attempt.blocked && attempt.blockedUntil && now < attempt.blockedUntil) {
 		console.error("🚫 Tentative d'accès bloquée (brute force):", {
 			timestamp: new Date().toISOString(),
@@ -402,7 +356,6 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		return
 	}
 
-	// Réinitialiser si la fenêtre de temps est expirée
 	if (now - attempt.firstAttempt > BRUTE_FORCE_CONFIG.timeWindow) {
 		attempt.attempts = 1
 		attempt.firstAttempt = now
@@ -413,11 +366,9 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 		return
 	}
 
-	// Incrémenter les tentatives
 	attempt.attempts++
 	attempt.lastAttempt = now
 
-	// Vérifier si le seuil est dépassé
 	if (attempt.attempts >= BRUTE_FORCE_CONFIG.maxAttempts) {
 		attempt.blocked = true
 		attempt.blockedUntil = now + BRUTE_FORCE_CONFIG.blockDuration
@@ -429,12 +380,11 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 			path,
 			requestId,
 			attempts: attempt.attempts,
-			timeWindow: BRUTE_FORCE_CONFIG.timeWindow / 1000 / 60, // en minutes
-			blockDuration: BRUTE_FORCE_CONFIG.blockDuration / 1000 / 60, // en minutes
+			timeWindow: BRUTE_FORCE_CONFIG.timeWindow / 1000 / 60,
+			blockDuration: BRUTE_FORCE_CONFIG.blockDuration / 1000 / 60,
 			severity: "critical",
 		})
 
-		// Déclencher une alerte via le système d'anomalies
 		try {
 			AnomalyService.logManualAnomaly({
 				title: `Attaque brute force détectée depuis ${ip}`,
@@ -460,7 +410,6 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 			console.error("Erreur lors de la consignation de l'anomalie brute force:", error)
 		}
 	} else {
-		// Log de warning pour les tentatives suspectes
 		console.warn("⚠️ Tentatives d'authentification suspectes:", {
 			timestamp: new Date().toISOString(),
 			type: "suspicious_auth_attempts",
@@ -476,15 +425,11 @@ function checkBruteForcePattern(ip: string, path: string, requestId: string): vo
 	bruteForceStore.set(key, attempt)
 }
 
-/**
- * Middleware pour bloquer les IPs en brute force
- */
 export const bruteForceProtectionMiddleware = async (c: Context, next: Next) => {
 	const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 	const path = c.req.path
 	const now = Date.now()
 
-	// Vérifier seulement les endpoints d'authentification
 	const authPaths = ["/api/auth/login", "/api/auth/register", "/admin/login"]
 	if (!authPaths.some((authPath) => path.includes(authPath))) {
 		await next()

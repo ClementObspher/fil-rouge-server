@@ -5,7 +5,6 @@ export async function uploadImage(file: Buffer, fileName: string, client: Client
 	const bucketName = "images"
 	const objectName = `${uuidv4()}-${fileName}`
 
-	// Assurez-vous que le bucket existe
 	const bucketExists = await client.bucketExists(bucketName)
 	if (!bucketExists) {
 		await client.makeBucket(bucketName, "")

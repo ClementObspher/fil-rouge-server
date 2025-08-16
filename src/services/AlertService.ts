@@ -38,27 +38,19 @@ export class AlertService {
 	private channels: Map<string, AlertChannel> = new Map()
 	private rules: Map<string, AlertRule> = new Map()
 	private history: AlertHistory[] = []
-	private lastAlerts: Map<string, number> = new Map() // Pour le cooldown
+	private lastAlerts: Map<string, number> = new Map()
 
 	constructor() {
 		this.initializeDefaultChannels()
 		this.initializeDefaultRules()
 	}
 
-	/**
-	 * Initialise le système de détection automatique d'anomalies
-	 */
 	init(): void {
-		// Démarrer le processus de vérification périodique
-		setInterval(() => this.checkAlerts(), 30000) // Toutes les 30 secondes
+		setInterval(() => this.checkAlerts(), 30000)
 		console.log("🤖 AlertService initialisé - Vérification automatique des anomalies toutes les 30s")
 	}
 
-	/**
-	 * Initialise les canaux de communication par défaut
-	 */
 	private initializeDefaultChannels(): void {
-		// Canal Email
 		this.channels.set("email-ops", {
 			type: "email",
 			config: {
@@ -77,7 +69,6 @@ export class AlertService {
 			enabled: true,
 		})
 
-		// Canal Webhook (Slack)
 		this.channels.set("slack-alerts", {
 			type: "webhook",
 			config: {
@@ -88,7 +79,6 @@ export class AlertService {
 			enabled: !!process.env.SLACK_WEBHOOK_URL,
 		})
 
-		// Canal SMS (pour les alertes critiques)
 		this.channels.set("sms-critical", {
 			type: "sms",
 			config: {
@@ -101,7 +91,6 @@ export class AlertService {
 			enabled: !!process.env.TWILIO_ACCOUNT_SID,
 		})
 
-		// Canal Webhook générique
 		this.channels.set("webhook-monitoring", {
 			type: "webhook",
 			config: {
@@ -113,11 +102,7 @@ export class AlertService {
 		})
 	}
 
-	/**
-	 * Initialise les règles d'alerte par défaut
-	 */
 	private initializeDefaultRules(): void {
-		// Règle pour les services indisponibles
 		this.rules.set("service-unhealthy", {
 			id: "service-unhealthy",
 			name: "Service Indisponible",
@@ -131,7 +116,6 @@ export class AlertService {
 			enabled: true,
 		})
 
-		// Règle pour la mémoire critique
 		this.rules.set("memory-critical", {
 			id: "memory-critical",
 			name: "Utilisation Mémoire Critique",
@@ -145,7 +129,6 @@ export class AlertService {
 			enabled: true,
 		})
 
-		// Règle pour les temps de réponse élevés
 		this.rules.set("response-time-high", {
 			id: "response-time-high",
 			name: "Temps de Réponse Élevé",
@@ -153,14 +136,13 @@ export class AlertService {
 				metric: "response_time_ms",
 				operator: "gt",
 				threshold: 2000,
-				duration: 120, // 2 minutes
+				duration: 120,
 			},
 			channels: ["slack-alerts"],
 			cooldown: 15,
 			enabled: true,
 		})
 
-		// Règle pour le taux d'erreur élevé
 		this.rules.set("error-rate-high", {
 			id: "error-rate-high",
 			name: "Taux d'Erreur Élevé",
@@ -174,7 +156,6 @@ export class AlertService {
 			enabled: true,
 		})
 
-		// Règle pour les échecs d'authentification
 		this.rules.set("auth-failures", {
 			id: "auth-failures",
 			name: "Échecs d'Authentification Massifs",
@@ -188,7 +169,6 @@ export class AlertService {
 			enabled: true,
 		})
 
-		// Règle pour l'usage du CPU élevé
 		this.rules.set("cpu-usage-high", {
 			id: "cpu-usage-high",
 			name: "Utilisation CPU Élevée",
@@ -196,14 +176,13 @@ export class AlertService {
 				metric: "cpu_usage_percent",
 				operator: "gt",
 				threshold: 85,
-				duration: 60, // 1 minute
+				duration: 60,
 			},
 			channels: ["email-ops", "slack-alerts"],
 			cooldown: 10,
 			enabled: true,
 		})
 
-		// Règle pour l'usage du CPU critique
 		this.rules.set("cpu-usage-critical", {
 			id: "cpu-usage-critical",
 			name: "Utilisation CPU Critique",
@@ -218,27 +197,23 @@ export class AlertService {
 		})
 	}
 
-	/**
-	 * Traite une alerte depuis le MonitoringService
-	 */
 	async processAlert(alert: AlertConfig): Promise<void> {
 		try {
 			const alertKey = `${alert.service}_${alert.metric}`
 			const now = Date.now()
 
-			// Cooldown adaptatif selon le type d'alerte
 			const getCooldownDuration = (alert: AlertConfig): number => {
-				const baseCooldown = 5 * 60 * 1000 // 5 minutes par défaut
+				const baseCooldown = 5 * 60 * 1000
 
 				switch (alert.metric) {
 					case "diskSpace":
 					case "connections":
-						return 15 * 60 * 1000 // 15 minutes pour éviter le spam sur ressources lentes
+						return 15 * 60 * 1000
 					case "errorPattern":
 					case "errorRate":
-						return 2 * 60 * 1000 // 2 minutes pour les erreurs (plus critique)
+						return 2 * 60 * 1000
 					case "performanceTrend":
-						return 10 * 60 * 1000 // 10 minutes pour les tendances
+						return 10 * 60 * 1000
 					case "memory":
 					case "cpu_usage_percent":
 					case "responseTime":
@@ -256,21 +231,16 @@ export class AlertService {
 				return
 			}
 
-			// Enregistre l'heure de cette alerte
 			this.lastAlerts.set(alertKey, now)
 
-			// Détermine les canaux à utiliser selon la sévérité
 			const channels = this.getChannelsForSeverity(alert.type)
 
-			// Formate le message
 			const message = this.formatAlertMessage(alert)
 
-			// Envoie les notifications
 			const notifications = channels.map((channelId) => this.sendNotification(channelId, message, alert))
 
 			await Promise.allSettled(notifications)
 
-			// Consigne automatiquement l'anomalie dans le système de consignation
 			try {
 				await AnomalyService.logAnomalyFromAlert(alert, {
 					alertChannels: channels,
@@ -282,7 +252,6 @@ export class AlertService {
 				console.error("Erreur lors de la consignation de l'anomalie:", error)
 			}
 
-			// Enregistre dans l'historique
 			this.history.push({
 				id: this.generateAlertId(),
 				alertId: alertKey,
@@ -299,7 +268,6 @@ export class AlertService {
 				},
 			})
 
-			// Garde seulement les 1000 dernières alertes
 			if (this.history.length > 1000) {
 				this.history = this.history.slice(-1000)
 			}
@@ -308,12 +276,8 @@ export class AlertService {
 		}
 	}
 
-	/**
-	 * Vérifie les alertes de manière périodique
-	 */
 	private async checkAlerts(): Promise<void> {
 		try {
-			// Import dynamique pour éviter la dépendance circulaire
 			const { default: MonitoringService } = await import("./MonitoringService")
 
 			const alerts = await MonitoringService.checkThresholds()
@@ -331,9 +295,6 @@ export class AlertService {
 		}
 	}
 
-	/**
-	 * Envoie une notification via un canal spécifique
-	 */
 	private async sendNotification(channelId: string, message: string, alert: AlertConfig): Promise<void> {
 		const channel = this.channels.get(channelId)
 
@@ -366,9 +327,6 @@ export class AlertService {
 		}
 	}
 
-	/**
-	 * Envoie une alerte par email
-	 */
 	private async sendEmailAlert(channel: AlertChannel, message: string, alert: AlertConfig): Promise<void> {
 		// Simulation d'envoi d'email (nécessiterait nodemailer en vrai)
 		console.log("EMAIL ALERT:", {
@@ -379,9 +337,6 @@ export class AlertService {
 		})
 	}
 
-	/**
-	 * Envoie une alerte par webhook
-	 */
 	private async sendWebhookAlert(channel: AlertChannel, message: string, alert: AlertConfig): Promise<void> {
 		if (!channel.config.url) return
 
@@ -405,9 +360,6 @@ export class AlertService {
 		})
 	}
 
-	/**
-	 * Envoie une alerte par SMS
-	 */
 	private async sendSMSAlert(channel: AlertChannel, message: string, alert: AlertConfig): Promise<void> {
 		// Simulation d'envoi SMS (nécessiterait Twilio SDK en vrai)
 		console.log("SMS ALERT:", {
@@ -417,9 +369,6 @@ export class AlertService {
 		})
 	}
 
-	/**
-	 * Envoie une alerte Slack
-	 */
 	private async sendSlackAlert(channel: AlertChannel, message: string, alert: AlertConfig): Promise<void> {
 		const color = alert.type === "critical" ? "danger" : alert.type === "warning" ? "warning" : "good"
 
@@ -444,9 +393,6 @@ export class AlertService {
 		console.log("SLACK ALERT:", slackPayload)
 	}
 
-	/**
-	 * Détermine les canaux à utiliser selon la sévérité
-	 */
 	private getChannelsForSeverity(severity: string): string[] {
 		switch (severity) {
 			case "critical":
@@ -460,9 +406,6 @@ export class AlertService {
 		}
 	}
 
-	/**
-	 * Formate le message d'alerte
-	 */
 	private formatAlertMessage(alert: AlertConfig): string {
 		const emoji = alert.type === "critical" ? "🔴" : alert.type === "warning" ? "🟠" : "🟡"
 
@@ -481,37 +424,22 @@ Dashboard: http://localhost:3001/monitoring/health
 Métriques: http://localhost:3001/monitoring/metrics`
 	}
 
-	/**
-	 * Génère un ID unique pour l'alerte
-	 */
 	private generateAlertId(): string {
 		return `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 	}
 
-	/**
-	 * API publique pour récupérer l'historique des alertes
-	 */
 	getAlertHistory(limit: number = 100): AlertHistory[] {
 		return this.history.slice(-limit)
 	}
 
-	/**
-	 * API publique pour récupérer les règles actives
-	 */
 	getActiveRules(): AlertRule[] {
 		return Array.from(this.rules.values()).filter((rule) => rule.enabled)
 	}
 
-	/**
-	 * API publique pour récupérer les canaux configurés
-	 */
 	getChannels(): AlertChannel[] {
 		return Array.from(this.channels.values())
 	}
 
-	/**
-	 * Test manuel d'une alerte
-	 */
 	async testAlert(channelId: string): Promise<void> {
 		const testAlert: AlertConfig = {
 			type: "info",

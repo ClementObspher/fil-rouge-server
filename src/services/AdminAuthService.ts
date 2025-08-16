@@ -63,11 +63,7 @@ export class AdminAuthService {
 		}
 	}
 
-	/**
-	 * Authentification admin
-	 */
 	async login(email: string, password: string, requestInfo: LoginRequestInfo): Promise<LoginResult> {
-		// Validation des données d'entrée
 		if (!email || !password) {
 			return {
 				success: false,
@@ -76,13 +72,11 @@ export class AdminAuthService {
 			}
 		}
 
-		// Rechercher l'utilisateur dans la base de données
 		const user = await this.prismaClient.user.findUnique({
 			where: { email },
 		})
 
 		if (!user) {
-			// Log de l'échec d'authentification pour déclenchement brute force
 			logAuthFailure(requestInfo.ip, requestInfo.userAgent, requestInfo.path, requestInfo.requestId)
 
 			return {
@@ -92,9 +86,7 @@ export class AdminAuthService {
 			}
 		}
 
-		// Vérifier que l'utilisateur a le rôle admin
 		if (user.role !== Role.ADMIN) {
-			// Log de l'échec d'authentification pour déclenchement brute force
 			logAuthFailure(requestInfo.ip, requestInfo.userAgent, requestInfo.path, requestInfo.requestId)
 
 			return {
@@ -104,10 +96,8 @@ export class AdminAuthService {
 			}
 		}
 
-		// Vérifier le mot de passe
 		const isValidPassword = await compare(password, user.password)
 		if (!isValidPassword) {
-			// Log de l'échec d'authentification pour déclenchement brute force
 			logAuthFailure(requestInfo.ip, requestInfo.userAgent, requestInfo.path, requestInfo.requestId)
 
 			return {
@@ -117,7 +107,6 @@ export class AdminAuthService {
 			}
 		}
 
-		// Générer un JWT avec les infos admin
 		const payload = {
 			userId: user.id,
 			email: user.email,
@@ -125,7 +114,7 @@ export class AdminAuthService {
 			role: user.role,
 			permissions: ["monitoring", "anomalies", "dashboard"],
 			iat: Math.floor(Date.now() / 1000),
-			exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24h d'expiration
+			exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
 		}
 
 		const token = sign(payload, this.JWT_SECRET)
@@ -148,9 +137,6 @@ export class AdminAuthService {
 		}
 	}
 
-	/**
-	 * Vérification du token admin
-	 */
 	async verifyToken(authHeader: string | undefined): Promise<VerifyTokenResult> {
 		if (!authHeader || !authHeader.startsWith("Bearer ")) {
 			return {
@@ -195,9 +181,6 @@ export class AdminAuthService {
 		}
 	}
 
-	/**
-	 * Extraction des informations de requête pour le monitoring
-	 */
 	extractRequestInfo(c: any): LoginRequestInfo {
 		return {
 			ip: c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown",

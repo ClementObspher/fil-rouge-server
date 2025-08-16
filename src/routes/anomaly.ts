@@ -4,12 +4,8 @@ import { adminAuthMiddleware } from "../middleware/adminAuth"
 
 const app = new Hono()
 
-// Appliquer l'authentification admin à toutes les routes
 app.use("*", adminAuthMiddleware)
 
-/**
- * GET /anomalies - Récupère la liste des anomalies avec filtres
- */
 app.get("/", async (c: Context) => {
 	try {
 		const query = c.req.query()
@@ -17,7 +13,6 @@ app.get("/", async (c: Context) => {
 
 		const filters: any = {}
 
-		// Applique les filtres s'ils sont fournis
 		if (status) {
 			filters.status = Array.isArray(status) ? status : [status]
 		}
@@ -60,9 +55,6 @@ app.get("/", async (c: Context) => {
 	}
 })
 
-/**
- * GET /anomalies/stats - Récupère les statistiques des anomalies
- */
 app.get("/stats", async (c: Context) => {
 	try {
 		const stats = await AnomalyService.getAnomalyStats()
@@ -83,9 +75,6 @@ app.get("/stats", async (c: Context) => {
 	}
 })
 
-/**
- * GET /anomalies/:id - Récupère une anomalie spécifique
- */
 app.get("/:id", async (c: Context) => {
 	try {
 		const { id } = c.req.param()
@@ -117,15 +106,11 @@ app.get("/:id", async (c: Context) => {
 	}
 })
 
-/**
- * POST /anomalies - Crée une nouvelle anomalie manuellement
- */
 app.post("/", async (c: Context) => {
 	try {
 		const body = await c.req.json()
 		const { title, description, severity, service, component, tags, metadata } = body
 
-		// Validation des champs requis
 		if (!title || !description || !severity || !service) {
 			return c.json(
 				{
@@ -136,7 +121,6 @@ app.post("/", async (c: Context) => {
 			)
 		}
 
-		// Validation de la sévérité
 		if (!["critical", "warning", "info"].includes(severity)) {
 			return c.json(
 				{
@@ -179,16 +163,12 @@ app.post("/", async (c: Context) => {
 	}
 })
 
-/**
- * PATCH /anomalies/:id/status - Met à jour le statut d'une anomalie
- */
 app.patch("/:id/status", async (c: Context) => {
 	try {
 		const { id } = c.req.param()
 		const body = await c.req.json()
 		const { status, notes } = body
 
-		// Validation du statut
 		if (!["detected", "investigating", "resolved", "closed"].includes(status)) {
 			return c.json(
 				{
@@ -229,16 +209,12 @@ app.patch("/:id/status", async (c: Context) => {
 	}
 })
 
-/**
- * POST /anomalies/:id/correctifs - Applique un correctif à une anomalie
- */
 app.post("/:id/correctifs", async (c: Context) => {
 	try {
 		const { id } = c.req.param()
 		const body = await c.req.json()
 		const { action, description, priority = "medium", estimatedEffort, category = "other", rollbackPlan } = body
 
-		// Validation des champs requis
 		if (!action || !description) {
 			return c.json(
 				{
@@ -249,7 +225,6 @@ app.post("/:id/correctifs", async (c: Context) => {
 			)
 		}
 
-		// Validation de la priorité
 		if (!["low", "medium", "high", "urgent"].includes(priority)) {
 			return c.json(
 				{
@@ -260,7 +235,6 @@ app.post("/:id/correctifs", async (c: Context) => {
 			)
 		}
 
-		// Validation de la catégorie
 		if (!["restart", "config", "scaling", "monitoring", "investigation", "other"].includes(category)) {
 			return c.json(
 				{
@@ -316,9 +290,6 @@ app.post("/:id/correctifs", async (c: Context) => {
 	}
 })
 
-/**
- * GET /anomalies/export/csv - Exporte les anomalies en CSV
- */
 app.get("/export/csv", async (c: Context) => {
 	try {
 		const query = c.req.query()
@@ -326,7 +297,6 @@ app.get("/export/csv", async (c: Context) => {
 
 		const filters: any = {}
 
-		// Applique les mêmes filtres que pour la liste
 		if (status) {
 			filters.status = Array.isArray(status) ? status : [status]
 		}
@@ -345,7 +315,6 @@ app.get("/export/csv", async (c: Context) => {
 
 		const result = await AnomalyService.getAnomalies(filters)
 
-		// Génère le CSV
 		const csvHeaders = [
 			"ID",
 			"Titre",

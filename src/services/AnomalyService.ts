@@ -8,43 +8,35 @@ export interface Anomaly {
 	severity: "critical" | "warning" | "info"
 	status: "detected" | "investigating" | "resolved" | "closed"
 
-	// Informations de détection
 	detectedAt: string
 	detectionMethod: "automatic" | "manual"
 	source: string // Service ou composant source
 
-	// Contexte technique
 	service: string
 	component?: string
 	metric: string
 	threshold: number
 	currentValue: number
 
-	// Données de contexte
 	environment: string
 	version?: string
 	userImpact: "none" | "low" | "medium" | "high" | "critical"
 
-	// Analyse et résolution
 	rootCause?: string
 	impact?: string
 	recommendedActions: string[]
 	appliedCorrectifs: CorrectifAction[]
 
-	// Métadonnées
 	tags: string[]
 	metadata: Record<string, any>
 
-	// Suivi temporel
 	investigationStartedAt?: string
 	resolvedAt?: string
 	closedAt?: string
 
-	// Assignation
 	assignedTo?: string
 	reporter: string
 
-	// Liaisons
 	relatedAnomalies: string[]
 	alertIds: string[]
 }
@@ -55,7 +47,7 @@ export interface CorrectifAction {
 	description: string
 	status: "planned" | "in_progress" | "completed" | "failed"
 	priority: "low" | "medium" | "high" | "urgent"
-	estimatedEffort: string // "5min", "2h", "1d", etc.
+	estimatedEffort: string
 	category: "restart" | "config" | "scaling" | "monitoring" | "investigation" | "other"
 	appliedAt?: string
 	appliedBy?: string
@@ -90,13 +82,9 @@ export class AnomalyService {
 		this.prisma = new PrismaClient()
 		this.initializePatterns()
 
-		// Nettoyage périodique des anomalies anciennes
 		setInterval(() => this.cleanupOldAnomalies(), 24 * 60 * 60 * 1000) // Tous les jours
 	}
 
-	/**
-	 * Initialise les patterns d'anomalies connues avec leurs correctifs
-	 */
 	private initializePatterns(): void {
 		this.patterns.set("high_memory_usage", {
 			pattern: "Utilisation mémoire élevée",
@@ -169,9 +157,6 @@ export class AnomalyService {
 		})
 	}
 
-	/**
-	 * Consigne une nouvelle anomalie détectée automatiquement
-	 */
 	async logAnomalyFromAlert(alert: AlertConfig, additionalContext?: Record<string, any>): Promise<Anomaly> {
 		const anomaly: Anomaly = {
 			id: this.generateAnomalyId(),
@@ -209,10 +194,8 @@ export class AnomalyService {
 			alertIds: [this.generateAlertReference(alert)],
 		}
 
-		// Sauvegarde l'anomalie
 		this.anomalies.set(anomaly.id, anomaly)
 
-		// Recherche les anomalies similaires
 		const relatedAnomalies = this.findRelatedAnomalies(anomaly)
 		if (relatedAnomalies.length > 0) {
 			anomaly.relatedAnomalies = relatedAnomalies.map((a) => a.id)
@@ -223,9 +206,6 @@ export class AnomalyService {
 		return anomaly
 	}
 
-	/**
-	 * Consigne manuellement une anomalie
-	 */
 	async logManualAnomaly(data: {
 		title: string
 		description: string
@@ -275,9 +255,6 @@ export class AnomalyService {
 		return anomaly
 	}
 
-	/**
-	 * Met à jour le statut d'une anomalie
-	 */
 	async updateAnomalyStatus(anomalyId: string, status: Anomaly["status"], updatedBy: string, notes?: string): Promise<Anomaly | null> {
 		const anomaly = this.anomalies.get(anomalyId)
 		if (!anomaly) return null
@@ -285,7 +262,6 @@ export class AnomalyService {
 		const previousStatus = anomaly.status
 		anomaly.status = status
 
-		// Met à jour les timestamps selon le statut
 		const now = new Date().toISOString()
 		switch (status) {
 			case "investigating":
@@ -301,7 +277,6 @@ export class AnomalyService {
 				break
 		}
 
-		// Ajoute une note de suivi
 		if (notes) {
 			if (!anomaly.metadata.statusHistory) {
 				anomaly.metadata.statusHistory = []
@@ -320,9 +295,6 @@ export class AnomalyService {
 		return anomaly
 	}
 
-	/**
-	 * Applique un correctif à une anomalie
-	 */
 	async applyCorrectif(anomalyId: string, correctif: Omit<CorrectifAction, "id" | "appliedAt">, appliedBy: string): Promise<CorrectifAction | null> {
 		const anomaly = this.anomalies.get(anomalyId)
 		if (!anomaly) return null
@@ -336,7 +308,6 @@ export class AnomalyService {
 
 		anomaly.appliedCorrectifs.push(correctifAction)
 
-		// Met automatiquement l'anomalie en investigation si elle était en "detected"
 		if (anomaly.status === "detected") {
 			anomaly.status = "investigating"
 			anomaly.investigationStartedAt = new Date().toISOString()
@@ -347,9 +318,6 @@ export class AnomalyService {
 		return correctifAction
 	}
 
-	/**
-	 * Récupère les anomalies avec filtres
-	 */
 	async getAnomalies(filters?: {
 		status?: Anomaly["status"][]
 		severity?: Anomaly["severity"][]
@@ -360,7 +328,6 @@ export class AnomalyService {
 	}): Promise<{ anomalies: Anomaly[]; total: number }> {
 		let filteredAnomalies = Array.from(this.anomalies.values())
 
-		// Applique les filtres
 		if (filters) {
 			if (filters.status) {
 				filteredAnomalies = filteredAnomalies.filter((a) => filters.status!.includes(a.status))
@@ -376,12 +343,10 @@ export class AnomalyService {
 			}
 		}
 
-		// Trie par date de détection (plus récent en premier)
 		filteredAnomalies.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime())
 
 		const total = filteredAnomalies.length
 
-		// Pagination
 		if (filters?.limit) {
 			const start = filters?.offset || 0
 			filteredAnomalies = filteredAnomalies.slice(start, start + filters.limit)
@@ -390,9 +355,6 @@ export class AnomalyService {
 		return { anomalies: filteredAnomalies, total }
 	}
 
-	/**
-	 * Récupère les statistiques des anomalies
-	 */
 	async getAnomalyStats(): Promise<AnomalyStats> {
 		const anomalies = Array.from(this.anomalies.values())
 
@@ -411,7 +373,6 @@ export class AnomalyService {
 			return acc
 		}, {} as Record<string, number>)
 
-		// Calcule le temps moyen de résolution
 		const resolvedAnomalies = anomalies.filter((a) => a.resolvedAt)
 		const avgResolutionTime =
 			resolvedAnomalies.length > 0
@@ -421,14 +382,12 @@ export class AnomalyService {
 						return acc + (resolvedTime - detectedTime)
 				  }, 0) /
 				  resolvedAnomalies.length /
-				  (60 * 1000) // en minutes
+				  (60 * 1000)
 				: 0
 
-		// Anomalies résolues cette semaine (seulement celles qui sont encore résolues)
 		const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 		const totalResolvedThisWeek = anomalies.filter((a) => a.resolvedAt && a.resolvedAt >= oneWeekAgo && a.status === "resolved").length
 
-		// Compteur des anomalies critiques ouvertes (detected ou investigating)
 		const criticalOpen = anomalies.filter((a) => a.severity === "critical" && (a.status === "detected" || a.status === "investigating")).length
 
 		return {
@@ -442,14 +401,9 @@ export class AnomalyService {
 		}
 	}
 
-	/**
-	 * Récupère une anomalie par ID
-	 */
 	async getAnomalyById(id: string): Promise<Anomaly | null> {
 		return this.anomalies.get(id) || null
 	}
-
-	// Méthodes utilitaires privées
 
 	private generateAnomalyId(): string {
 		return `anomaly_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
@@ -470,7 +424,6 @@ export class AnomalyService {
 	}
 
 	private extractComponent(alert: AlertConfig): string | undefined {
-		// Essaie d'extraire le composant depuis les informations de l'alerte
 		if (alert.metric.includes("database")) return "database"
 		if (alert.metric.includes("storage")) return "storage"
 		if (alert.metric.includes("memory")) return "memory"
@@ -480,7 +433,6 @@ export class AnomalyService {
 	}
 
 	private evaluateUserImpact(alert: AlertConfig): Anomaly["userImpact"] {
-		// Évalue l'impact utilisateur basé sur la sévérité et le service
 		if (alert.type === "critical") {
 			if (alert.service === "application" || alert.service === "database") {
 				return "critical"
@@ -501,17 +453,14 @@ export class AnomalyService {
 			return pattern.recommendedActions
 		}
 
-		// Actions génériques par défaut
 		return ["Analyser les logs du service concerné", "Vérifier l'état des ressources système", "Contrôler les dépendances externes", "Considérer un redémarrage si nécessaire"]
 	}
 
 	private getManualRecommendations(data: any): string[] {
-		// Recommandations basiques pour les anomalies manuelles
 		return ["Analyser la cause racine du problème", "Documenter les étapes de reproduction", "Évaluer l'impact sur les utilisateurs", "Planifier les actions correctives"]
 	}
 
 	private detectPattern(alert: AlertConfig): string {
-		// Détecte le pattern d'anomalie basé sur les informations de l'alerte
 		if (alert.metric.includes("memory")) return "high_memory_usage"
 		if (alert.metric.includes("response") || alert.metric.includes("latency")) return "high_response_time"
 		if (alert.metric.includes("availability") || alert.metric.includes("health")) return "service_unavailable"
@@ -524,7 +473,6 @@ export class AnomalyService {
 	private generateTags(alert: AlertConfig): string[] {
 		const tags = [alert.service, alert.metric, alert.type]
 
-		// Ajoute des tags contextuels
 		if (alert.metric.includes("database")) tags.push("database")
 		if (alert.metric.includes("memory")) tags.push("performance")
 		if (alert.metric.includes("network")) tags.push("connectivity")
@@ -534,12 +482,10 @@ export class AnomalyService {
 	}
 
 	private getApplicableRules(alert: AlertConfig): string[] {
-		// Retourne les règles de détection qui s'appliquent à cette alerte
 		return [`threshold_${alert.metric}`, `service_${alert.service}`]
 	}
 
 	private findRelatedAnomalies(anomaly: Anomaly): Anomaly[] {
-		// Trouve les anomalies similaires récentes (dernières 24h)
 		const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
 		return Array.from(this.anomalies.values()).filter(
@@ -551,7 +497,6 @@ export class AnomalyService {
 	}
 
 	private cleanupOldAnomalies(): void {
-		// Supprime les anomalies closes de plus de 30 jours
 		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
 		Array.from(this.anomalies.entries()).forEach(([id, anomaly]) => {

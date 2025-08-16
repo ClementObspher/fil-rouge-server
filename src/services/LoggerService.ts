@@ -54,9 +54,6 @@ export class LoggerService {
 		}
 	}
 
-	/**
-	 * Log d'information général
-	 */
 	info(message: string, data?: Record<string, any>, requestId?: string): void {
 		const entry: LogEntry = {
 			timestamp: new Date().toISOString(),
@@ -67,14 +64,10 @@ export class LoggerService {
 			service: "fil-rouge-server",
 		}
 
-		// Console + Fichier
 		console.log("INFO:", this.formatLogEntry(entry).trim())
 		this.writeToFile("info", this.formatLogEntry(entry))
 	}
 
-	/**
-	 * Log d'avertissement
-	 */
 	warn(message: string, data?: Record<string, any>, requestId?: string): void {
 		const entry: LogEntry = {
 			timestamp: new Date().toISOString(),
@@ -89,9 +82,6 @@ export class LoggerService {
 		this.writeToFile("warn", this.formatLogEntry(entry))
 	}
 
-	/**
-	 * Log d'erreur
-	 */
 	error(message: string, data?: Record<string, any>, requestId?: string): void {
 		const entry: LogEntry = {
 			timestamp: new Date().toISOString(),
@@ -106,9 +96,6 @@ export class LoggerService {
 		this.writeToFile("error", this.formatLogEntry(entry))
 	}
 
-	/**
-	 * Log de debug
-	 */
 	debug(message: string, data?: Record<string, any>, requestId?: string): void {
 		if (process.env.NODE_ENV === "development" || process.env.DEBUG === "true") {
 			const entry: LogEntry = {
@@ -125,11 +112,7 @@ export class LoggerService {
 		}
 	}
 
-	/**
-	 * Log spécialisé pour les requêtes HTTP
-	 */
 	logRequest(data: { method: string; path: string; statusCode: number; responseTime: number; ip: string; userAgent: string; requestId: string; isError?: boolean }): void {
-		// Filtrer les routes de monitoring et d'anomalies des logs internes
 		if (data.path.includes("/monitoring") || data.path.includes("/anomalies")) {
 			return
 		}
@@ -156,9 +139,6 @@ export class LoggerService {
 		}
 	}
 
-	/**
-	 * Log spécialisé pour la sécurité
-	 */
 	logSecurity(event: string, data: Record<string, any>, requestId?: string): void {
 		const message = `Security Event: ${event}`
 
@@ -171,9 +151,6 @@ export class LoggerService {
 		this.warn(message, logData, requestId)
 	}
 
-	/**
-	 * Log spécialisé pour les métriques business
-	 */
 	logBusiness(action: string, data: Record<string, any>, requestId?: string): void {
 		const message = `Business Event: ${action}`
 
@@ -186,9 +163,6 @@ export class LoggerService {
 		this.info(message, logData, requestId)
 	}
 
-	/**
-	 * Récupère les logs récents d'un fichier
-	 */
 	getRecentLogs(level: "info" | "warn" | "error" | "debug", lines: number = 100): string[] {
 		try {
 			const filePath = this.getLogFilePath(level)
@@ -196,7 +170,6 @@ export class LoggerService {
 				return []
 			}
 
-			// Lecture simple - en production, utiliser des outils comme tail
 			const content = readFileSync(filePath, "utf8")
 			const allLines = content.split("\n").filter((line: string) => line.trim())
 
@@ -207,9 +180,6 @@ export class LoggerService {
 		}
 	}
 
-	/**
-	 * Recherche dans les logs par requestId
-	 */
 	findLogsByRequestId(requestId: string): LogEntry[] {
 		const results: LogEntry[] = []
 		const levels = ["info", "warn", "error", "debug"]
@@ -231,9 +201,6 @@ export class LoggerService {
 		return results.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 	}
 
-	/**
-	 * API pour récupérer un résumé des logs
-	 */
 	getLogsSummary(hours: number = 24): {
 		total: number
 		errors: number

@@ -11,7 +11,6 @@ export const uploadSingle = (fieldName: string) => {
 		try {
 			const upload = multerUpload.single(fieldName)
 
-			// Création d'une requête Express compatible avec un stream
 			const req = {
 				...c.req.raw,
 				file: undefined,
@@ -30,7 +29,6 @@ export const uploadSingle = (fieldName: string) => {
 					return stream.pipe(dest)
 				},
 				unpipe: function (dest: any) {
-					// Implémentation vide car nous n'avons pas besoin de gérer le unpipe
 					return this
 				},
 			} as unknown as Request
@@ -47,7 +45,6 @@ export const uploadSingle = (fieldName: string) => {
 							return
 						}
 						;(c.req as any).file = req.file
-						// Stocker les données de formulaire pour que le contrôleur puisse y accéder
 						;(c.req as any).formData = req.body
 						resolve(true)
 					}

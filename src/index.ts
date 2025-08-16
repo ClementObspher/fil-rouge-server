@@ -24,8 +24,6 @@ const app = new Hono()
 
 // Démarrage du système de monitoring automatique
 AlertService.init()
-console.log(`📊 Canaux d'alerte configurés: ${AlertService.getChannels().length}`)
-console.log(`📋 Règles d'alerte actives: ${AlertService.getActiveRules().length}`)
 
 useApitally(app, {
 	clientId: "89c964a5-16d6-444e-a86b-0d2610659ad4",
@@ -77,7 +75,7 @@ app.get("/monitoring-dashboard", async (c) => {
 	return c.html(html)
 })
 
-// Routes de monitoring (non protégées - APIs seulement)
+// Routes de monitoring (non protégées)
 app.route("/monitoring", monitoring)
 
 // Routes d'anomalies (protégées par auth admin)

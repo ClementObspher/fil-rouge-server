@@ -45,7 +45,6 @@ export class EventImageController {
 				return c.json({ error: "Aucun fichier n'a été uploadé" }, 400)
 			}
 
-			// Récupérer les données de formulaire depuis le middleware
 			const formData = (c.req as any).formData || {}
 			const eventId = formData.eventId
 
@@ -53,7 +52,6 @@ export class EventImageController {
 				return c.json({ error: "eventId est requis" }, 400)
 			}
 
-			// Vérifier que l'événement existe
 			const event = await this.eventService.findById(eventId)
 
 			if (!event) {
@@ -64,7 +62,6 @@ export class EventImageController {
 				return c.json({ error: "Vous n'avez pas les permissions pour ajouter une image à cet événement" }, 403)
 			}
 
-			// Upload de l'image vers MinIO
 			let imageUrl: string
 
 			// Pour les tests, simuler l'upload si MinIO n'est pas disponible
@@ -79,7 +76,6 @@ export class EventImageController {
 				}
 			}
 
-			// Créer l'entrée dans la base de données
 			const eventImage = await this.eventImageService.create({
 				eventId,
 				url: imageUrl,
@@ -99,13 +95,11 @@ export class EventImageController {
 				return c.json({ error: "Aucun fichier n'a été uploadé" }, 400)
 			}
 
-			// Vérifier que l'image existe
 			const existingImage = await this.eventImageService.findById(id)
 			if (!existingImage) {
 				return c.json({ error: "Image non trouvée" }, 404)
 			}
 
-			// Upload de l'image vers MinIO
 			let imageUrl: string
 
 			// Pour les tests, simuler l'upload si MinIO n'est pas disponible

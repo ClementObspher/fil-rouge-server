@@ -8,9 +8,6 @@ export class AdminAuthController {
 		this.adminAuthService = adminAuthService || new AdminAuthService()
 	}
 
-	/**
-	 * Authentification admin
-	 */
 	async login(email: string, password: string, requestInfo: LoginRequestInfo) {
 		const result = await this.adminAuthService.login(email, password, requestInfo)
 		return {
@@ -19,9 +16,6 @@ export class AdminAuthController {
 		}
 	}
 
-	/**
-	 * Vérification du token admin
-	 */
 	async verifyToken(authHeader: string | undefined) {
 		const result = await this.adminAuthService.verifyToken(authHeader)
 		return {
@@ -30,9 +24,6 @@ export class AdminAuthController {
 		}
 	}
 
-	/**
-	 * Extraction des informations de requête pour le monitoring
-	 */
 	extractRequestInfo(c: any): LoginRequestInfo {
 		return this.adminAuthService.extractRequestInfo(c)
 	}

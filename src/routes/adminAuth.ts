@@ -6,12 +6,8 @@ import { ContentfulStatusCode } from "hono/utils/http-status"
 const app = new Hono()
 const adminAuthController = new AdminAuthController()
 
-// Application du middleware de protection brute force
 app.use("/*", bruteForceProtectionMiddleware)
 
-/**
- * POST /admin/login - Authentification admin
- */
 app.post("/login", async (c) => {
 	try {
 		const body = await c.req.json()
@@ -40,9 +36,6 @@ app.post("/login", async (c) => {
 	}
 })
 
-/**
- * POST /admin/verify - Vérification du token
- */
 app.post("/verify", async (c) => {
 	try {
 		const authHeader = c.req.header("Authorization")

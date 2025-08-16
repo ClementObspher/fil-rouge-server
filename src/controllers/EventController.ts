@@ -70,7 +70,6 @@ export class EventController {
 				return c.json({ error: "Le paramètre 'types' est requis" }, 400)
 			}
 
-			// Parser les types depuis le query parameter (ex: ?types=SPORT,MUSIC)
 			const types = typesParam.split(",") as EventType[]
 			const events = await this.eventService.findByTypes(types)
 			return c.json(events)
@@ -94,7 +93,6 @@ export class EventController {
 			const data = await c.req.json<Omit<Event, "id" | "createdAt" | "updatedAt" | "ownerId"> & { address?: Omit<Address, "id" | "createdAt" | "updatedAt"> }>()
 			const userId = c.get("user").userId
 
-			// Validation des données requises
 			if (!data.title || !data.startDate || !data.endDate) {
 				return c.json({ error: "Titre, date de début et date de fin sont requis" }, 400)
 			}
@@ -103,7 +101,6 @@ export class EventController {
 				return c.json({ error: "La date de fin doit être postérieure à la date de début" }, 400)
 			}
 
-			// Validation du type d'événement
 			if (data.type && !Object.values(EventType).includes(data.type)) {
 				return c.json({ error: "Type d'événement invalide" }, 400)
 			}
@@ -121,7 +118,6 @@ export class EventController {
 
 			const { address: _, ...eventData } = data
 
-			// Générer un slug basé sur le titre
 			const baseSlug = data.title
 				.toLowerCase()
 				.replace(/[^a-z0-9\s-]/g, "")
@@ -129,11 +125,9 @@ export class EventController {
 				.replace(/-+/g, "-")
 				.trim()
 
-			// Ajouter un timestamp pour assurer l'unicité
 			const timestamp = Date.now()
 			const slug = `${baseSlug}-${timestamp}`
 
-			// Préparer les données de l'événement avec les valeurs par défaut
 			const eventCreateData = {
 				...eventData,
 				ownerId: userId,
@@ -157,7 +151,6 @@ export class EventController {
 				return c.json({ error: "Erreur lors de la création de l'événement" }, 500)
 			}
 
-			// Gérer l'upload de l'image de couverture si fournie
 			let finalEvent = event
 			if (data.coverImage && typeof data.coverImage === "string") {
 				try {
@@ -178,12 +171,10 @@ export class EventController {
 		} catch (error) {
 			console.log(error)
 
-			// Gestion spécifique des erreurs de validation Prisma
 			if (error instanceof Prisma.PrismaClientValidationError) {
 				return c.json({ error: "Données invalides" }, 400)
 			}
 
-			// Gestion des erreurs de contrainte unique (slug)
 			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
 				return c.json({ error: "Un événement avec ce titre existe déjà" }, 400)
 			}
@@ -197,19 +188,16 @@ export class EventController {
 			const id = c.req.param("id")
 			const userId = c.get("user").userId
 
-			// Vérifier que l'événement existe
 			const existingEvent = (await this.eventService.findById(id)) as any
 			if (!existingEvent) {
 				return c.json({ error: "Événement non trouvé" }, 404)
 			}
 
-			// Vérifier que l'utilisateur existe
 			const existingUser = await this.userService.findById(userId)
 			if (!existingUser) {
 				return c.json({ error: "Utilisateur non trouvé" }, 404)
 			}
 
-			// Vérifier si l'utilisateur participe déjà
 			const isAlreadyParticipating = existingEvent.participants?.some((participant: any) => participant.id === userId)
 			if (isAlreadyParticipating) {
 				return c.json({ error: "Vous participez déjà à cet événement" }, 400)
@@ -227,19 +215,16 @@ export class EventController {
 			const id = c.req.param("id")
 			const userId = c.get("user").userId
 
-			// Vérifier que l'événement existe
 			const existingEvent = (await this.eventService.findById(id)) as any
 			if (!existingEvent) {
 				return c.json({ error: "Événement non trouvé" }, 404)
 			}
 
-			// Vérifier que l'utilisateur existe
 			const existingUser = await this.userService.findById(userId)
 			if (!existingUser) {
 				return c.json({ error: "Utilisateur non trouvé" }, 404)
 			}
 
-			// Vérifier si l'utilisateur participe actuellement
 			const isParticipating = existingEvent.participants?.some((participant: any) => participant.id === userId)
 			if (!isParticipating) {
 				return c.json({ error: "Vous ne participez pas à cet événement" }, 400)

@@ -34,7 +34,6 @@ export class AuthController {
 			const result = await this.authService.login(email, password)
 			return c.json(result)
 		} catch (error) {
-			// Log de l'échec d'authentification pour déclenchement brute force
 			const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"
 			const userAgent = c.req.header("user-agent") || "unknown"
 			const requestId = c.req.header("x-request-id") || "unknown"
